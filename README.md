@@ -4,10 +4,10 @@ A sidebar panel for Home Assistant to browse, test, copy, rename, delete,
 convert and learn Broadlink IR/RF codes — without editing
 `.storage/broadlink_remote_<mac>_codes` by hand.
 
-> **Status: v1.0.0 — first working MVP.** Built from a design spec and a
-> review of the Broadlink integration's source in `home-assistant/core`,
-> but **not yet tested against a live Home Assistant instance.** Please
-> open an issue with your HA version if something doesn't load — see
+> **Status: v1.1.0.** Built from a design spec and a review of the
+> Broadlink integration's source in `home-assistant/core`, but **not yet
+> tested against a live Home Assistant instance.** Please open an issue
+> with your HA version if something doesn't load — see
 > [Known limitations](#known-limitations--how-it-works) below for why.
 
 ## Features
@@ -30,23 +30,23 @@ convert and learn Broadlink IR/RF codes — without editing
 
 ## Installation
 
+No YAML editing at any point — this is a UI-only integration.
+
 ### HACS (custom repository)
 
 1. HACS → Integrations → ⋮ → Custom repositories.
 2. Add `https://github.com/kdinya/ha-broadlink-codes-manager`, category
    *Integration*.
 3. Install **Broadlink Codes Manager**, restart Home Assistant.
-4. Add to `configuration.yaml`:
-   ```yaml
-   broadlink_codes_manager:
-   ```
-5. Restart again. A **Broadlink Codes** entry appears in the sidebar for
-   admin users.
+4. Settings → Devices & Services → **Add Integration** → search
+   *Broadlink Codes Manager* → Submit. That's it — one instance is all
+   that's needed, and it takes no configuration fields.
+5. A **Broadlink Codes** entry appears in the sidebar for admin users.
 
 ### Manual
 
 Copy `custom_components/broadlink_codes_manager/` into your HA
-`config/custom_components/` folder, then follow steps 4–5 above.
+`config/custom_components/` folder, restart HA, then do step 4 above.
 
 ## Services
 

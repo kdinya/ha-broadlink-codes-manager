@@ -5,8 +5,9 @@ A maintenance panel for the codes learned by Home Assistant's Broadlink
 code formats, and learn new commands - without touching
 `.storage/broadlink_remote_<mac>_codes` by hand.
 
-Setup is YAML-only (no config entry needed): add `broadlink_codes_manager:`
-to configuration.yaml.
+Setup is entirely through the UI (Settings -> Devices & Services -> Add
+Integration -> Broadlink Codes Manager -> Submit). No YAML editing
+required; there is nothing to configure.
 """
 from __future__ import annotations
 
@@ -15,10 +16,11 @@ import logging
 import voluptuous as vol
 
 from homeassistant.components import panel_custom
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
-from homeassistant.helpers import config_validation as cv
 
 from .const import (
+    DATA_ENTRIES,
     DOMAIN,
     PANEL_JS_URL,
     PANEL_URL_PATH,
@@ -37,11 +39,9 @@ from .entity_access import (
 
 _LOGGER = logging.getLogger(__name__)
 
-CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
-
 RENAME_SCHEMA = vol.Schema(
     {
-        vol.Required("entity_id"): cv.entity_id,
+        vol.Required("entity_id"): str,
         vol.Required("device"): str,
         vol.Required("old_command"): str,
         vol.Required("new_command"): str,
@@ -57,12 +57,19 @@ CONVERT_SCHEMA = vol.Schema(
 
 LEARN_SCHEMA = vol.Schema(
     {
-        vol.Required("entity_id"): cv.entity_id,
+        vol.Required("entity_id"): str,
         vol.Required("device"): str,
         vol.Required("command"): str,
         vol.Optional("alternative", default=False): bool,
         vol.Optional("timeout", default=20): vol.All(int, vol.Range(min=5, max=60)),
     }
+)
+
+ALL_SERVICES = (
+    SERVICE_LIST_CODES,
+    SERVICE_RENAME_COMMAND,
+    SERVICE_CONVERT_CODE,
+    SERVICE_LEARN_COMMAND,
 )
 
 
@@ -79,7 +86,57 @@ def _codes_payload(entity) -> dict:
     return devices
 
 
-async def async_setup(hass: HomeAssistant, config) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Broadlink Codes Manager from a config entry.
+
+    Services and the sidebar panel are global (not per-entry), and this
+    integration only ever allows a single entry (enforced in the config
+    flow), so the first entry registers everything and the last one to
+    unload tears it down.
+    """
+    domain_data = hass.data.setdefault(DOMAIN, {DATA_ENTRIES: set()})
+    is_first_entry = not domain_data[DATA_ENTRIES]
+    domain_data[DATA_ENTRIES].add(entry.entry_id)
+
+    if is_first_entry:
+        _register_services(hass)
+        await _async_register_static_path(hass)
+        await panel_custom.async_register_panel(
+            hass,
+            webcomponent_name="broadlink-codes-panel",
+            frontend_url_path=PANEL_URL_PATH,
+            module_url=PANEL_JS_URL,
+            sidebar_title="Broadlink Codes",
+            sidebar_icon="mdi:remote",
+            require_admin=True,
+            config={},
+        )
+
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    domain_data = hass.data.get(DOMAIN)
+    if domain_data is None:
+        return True
+
+    domain_data[DATA_ENTRIES].discard(entry.entry_id)
+
+    if not domain_data[DATA_ENTRIES]:
+        for service in ALL_SERVICES:
+            hass.services.async_remove(DOMAIN, service)
+        try:
+            from homeassistant.components import frontend
+
+            frontend.async_remove_panel(hass, PANEL_URL_PATH)
+        except Exception as err:  # noqa: BLE001 - best-effort cleanup only
+            _LOGGER.debug("Could not remove sidebar panel cleanly: %s", err)
+        hass.data.pop(DOMAIN, None)
+
+    return True
+
+
+def _register_services(hass: HomeAssistant) -> None:
     async def handle_list_codes(call: ServiceCall) -> dict:
         remotes = []
         for entity_id, entity in get_broadlink_remotes(hass):
@@ -165,21 +222,6 @@ async def async_setup(hass: HomeAssistant, config) -> bool:
         schema=LEARN_SCHEMA,
         supports_response=SupportsResponse.ONLY,
     )
-
-    await _async_register_static_path(hass)
-
-    await panel_custom.async_register_panel(
-        hass,
-        webcomponent_name="broadlink-codes-panel",
-        frontend_url_path=PANEL_URL_PATH,
-        module_url=PANEL_JS_URL,
-        sidebar_title="Broadlink Codes",
-        sidebar_icon="mdi:remote",
-        require_admin=True,
-        config={},
-    )
-
-    return True
 
 
 async def _async_register_static_path(hass: HomeAssistant) -> None:

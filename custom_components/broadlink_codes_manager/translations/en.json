@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Broadlink Codes Manager",
+        "description": "Sets up the Broadlink Codes sidebar panel. No configuration needed - it finds your existing Broadlink remotes automatically. Click Submit to finish."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Broadlink Codes Manager is already set up. Only one instance is needed."
+    }
+  }
+}
