@@ -16,6 +16,7 @@ const STRINGS = {
     noMatch: "No devices match the filter.",
     learn: "+ Learn command",
     deleteDevice: "Delete device",
+    back: "Back",
     test: "Test",
     copy: "Copy",
     rename: "Rename",
@@ -79,6 +80,7 @@ const STRINGS = {
     noMatch: "Немає пристроїв, що відповідають фільтру.",
     learn: "+ Навчити команду",
     deleteDevice: "Видалити пристрій",
+    back: "Назад",
     test: "Тест",
     copy: "Копіювати",
     rename: "Перейменувати",
@@ -140,6 +142,7 @@ class BroadlinkCodesPanel extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._data = null;
     this._filter = "";
+    this._openDevice = null; // {entityId, device} when drilled into a device's command list
     this._lang = localStorage.getItem(LANG_KEY) || "en";
     if (!STRINGS[this._lang]) this._lang = "en";
   }
@@ -639,6 +642,26 @@ class BroadlinkCodesPanel extends HTMLElement {
     return div.innerHTML;
   }
 
+  _deviceIcon(name) {
+    const n = name.toLowerCase();
+    const table = [
+      [["tv", "телев", "телек"], "📺"],
+      [["air", "condition", "клімат", "кондиц", "ac"], "❄️"],
+      [["light", "lamp", "світло", "лампа", "люстра"], "💡"],
+      [["fan", "вентил"], "🌀"],
+      [["speaker", "audio", "sound", "колон", "звук", "музик"], "🔊"],
+      [["heat", "обігрів", "тепл"], "🔥"],
+      [["projector", "проектор"], "📽️"],
+      [["box", "приставк", "тюнер", "receiver", "ресивер"], "📡"],
+      [["fireplace", "камін"], "🔥"],
+      [["curtain", "blind", "штор", "жалюз"], "🪟"],
+    ];
+    for (const [keywords, icon] of table) {
+      if (keywords.some((k) => n.includes(k))) return icon;
+    }
+    return "🎛️";
+  }
+
   _setLang(lang) {
     if (!STRINGS[lang]) return;
     this._lang = lang;
@@ -670,7 +693,7 @@ class BroadlinkCodesPanel extends HTMLElement {
         input.filter { width: 100%; max-width: 360px; padding: 9px 10px; margin-bottom: 18px;
           border-radius: 8px; border: 1px solid var(--divider-color); box-sizing: border-box;
           background: var(--card-background-color); color: var(--primary-text-color); font-size: 14px; }
-        .remote { margin-bottom: 20px; border-radius: 12px; overflow: hidden;
+        .remote { margin-bottom: 20px; border-radius: 14px; overflow: hidden;
           box-shadow: var(--ha-card-box-shadow, 0 1px 3px rgba(0,0,0,0.12)); background: var(--card-background-color); }
         .remote-header { background: var(--card-background-color); padding: 14px 16px; font-weight: 600;
           font-size: 15px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
@@ -678,29 +701,47 @@ class BroadlinkCodesPanel extends HTMLElement {
         .remote-header .header-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .remote-header .entity-id { display: block; font-weight: 400; color: var(--secondary-text-color);
           font-size: 11px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .remote-header button, .device-header button { flex-shrink: 0; white-space: nowrap; }
-        .device { border-bottom: 1px solid var(--divider-color); }
-        .device:last-child { border-bottom: none; }
-        .device-header { display: flex; justify-content: space-between; align-items: center; gap: 10px;
-          padding: 10px 16px; cursor: pointer; user-select: none; }
-        .device-header .header-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .device-header:hover { background: var(--secondary-background-color); }
-        .device-header .chevron { display: inline-block; transition: transform .15s; margin-right: 6px; opacity: .6; }
-        .device-header.open .chevron { transform: rotate(90deg); }
-        .count-badge { font-size: 11px; background: var(--secondary-background-color); color: var(--secondary-text-color);
-          border-radius: 10px; padding: 2px 8px; margin-left: 8px; }
-        .commands-grid { display: none; flex-wrap: wrap; gap: 8px; padding: 4px 16px 16px; }
-        .cmd-chip { position: relative; background: var(--secondary-background-color);
-          color: var(--primary-text-color); border: 1px solid var(--divider-color);
-          border-radius: 20px; padding: 8px 16px; font-size: 13px; font-weight: 500;
-          margin-left: 0; }
-        .cmd-chip:hover { background: var(--primary-color); color: var(--text-primary-color, #fff);
-          border-color: var(--primary-color); }
-        .cmd-chip.add-chip { background: transparent; border-style: dashed; color: var(--primary-color);
-          font-size: 16px; font-weight: 600; padding: 8px 14px; min-width: 40px; text-align: center; }
-        .cmd-chip.add-chip:hover { background: var(--primary-color); color: var(--text-primary-color, #fff);
-          border-style: solid; }
-        .cmd-chip .toggle-badge { margin-left: 6px; }
+        .remote-header button { flex-shrink: 0; white-space: nowrap; }
+
+        /* ---- device tile grid (list of devices) ---- */
+        .device-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+          gap: 12px; padding: 16px; }
+        .device-tile { position: relative; background: var(--secondary-background-color);
+          border: 1px solid var(--divider-color); border-radius: 16px; padding: 18px 10px 12px;
+          text-align: center; cursor: pointer; transition: background .12s, border-color .12s, transform .12s; }
+        .device-tile:hover { border-color: var(--primary-color); transform: translateY(-2px); }
+        .device-tile .tile-icon { font-size: 28px; line-height: 1; display: block; margin-bottom: 10px; }
+        .device-tile .tile-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis;
+          white-space: nowrap; }
+        .device-tile .tile-count { font-size: 11px; color: var(--secondary-text-color); margin-top: 3px; }
+        .device-tile .tile-del { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px;
+          border-radius: 50%; padding: 0; font-size: 13px; line-height: 22px; background: transparent;
+          color: var(--secondary-text-color); opacity: 0; transition: opacity .12s; margin: 0; }
+        .device-tile:hover .tile-del { opacity: 1; }
+        .device-tile .tile-del:hover { background: var(--error-color, #db4437); color: #fff; }
+        .add-device-tile { display: flex; flex-direction: column; align-items: center; justify-content: center;
+          border-style: dashed; color: var(--primary-color); }
+        .add-device-tile .tile-icon { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+
+        /* ---- plain command list (inside a device) ---- */
+        .device-view-header { display: flex; align-items: center; gap: 8px; padding: 14px 16px;
+          border-bottom: 1px solid var(--divider-color); background: var(--card-background-color); }
+        .device-view-header .back-btn { background: transparent; color: var(--primary-text-color);
+          padding: 6px; margin: 0; border-radius: 50%; width: 32px; height: 32px; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center; }
+        .device-view-header .back-btn:hover { background: var(--secondary-background-color); }
+        .device-view-header .back-btn svg { width: 22px; height: 22px; fill: currentColor; }
+        .device-view-header .title { flex: 1; min-width: 0; font-size: 16px; font-weight: 600;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .command-list { background: var(--card-background-color); border-radius: 0 0 14px 14px; overflow: hidden; }
+        .command-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+          padding: 13px 16px; cursor: pointer; border-bottom: 1px solid var(--divider-color); }
+        .command-row:last-child { border-bottom: none; }
+        .command-row:hover { background: var(--secondary-background-color); }
+        .command-row .cmd-name { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .command-row .cmd-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; color: var(--secondary-text-color); }
+        .command-row .row-chevron { opacity: .5; }
+        .add-command-row { color: var(--primary-color); font-weight: 500; }
         button { cursor: pointer; border: none; background: var(--primary-color); color: var(--text-primary-color, #fff);
           padding: 5px 10px; border-radius: 6px; font-size: 12px; margin-left: 6px; font-weight: 500; }
         button:hover { filter: brightness(1.05); }
@@ -792,6 +833,19 @@ class BroadlinkCodesPanel extends HTMLElement {
       return;
     }
 
+    // If we're drilled into a device, that view replaces everything else -
+    // it's a plain list, on purpose (a grid of chips was hard to scan once
+    // a device had more than a handful of commands).
+    if (this._openDevice) {
+      this._renderDeviceView(content);
+      return;
+    }
+
+    this._renderDeviceGrid(content);
+  }
+
+  _renderDeviceGrid(content) {
+    const t = this.t;
     const filter = this._filter;
     content.innerHTML = "";
 
@@ -820,77 +874,101 @@ class BroadlinkCodesPanel extends HTMLElement {
         empty.style.padding = "10px 16px";
         empty.textContent = t.noMatch;
         remoteEl.appendChild(empty);
+        content.appendChild(remoteEl);
+        continue;
       }
+
+      const grid = document.createElement("div");
+      grid.className = "device-grid";
 
       for (const device of deviceNames) {
         const commands = remote.devices[device];
-        const deviceEl = document.createElement("div");
-        deviceEl.className = "device";
-
-        const dHeader = document.createElement("div");
-        dHeader.className = "device-header";
         const commandCount = Object.keys(commands).length;
-        dHeader.innerHTML = `<span class="header-title"><span class="chevron">&#9656;</span>&#128193; ${this._escapeHtml(device)}<span class="count-badge">${commandCount}</span></span>`;
-        const actions = document.createElement("span");
-        actions.className = "device-actions";
-        const delDevBtn = document.createElement("button");
-        delDevBtn.className = "danger";
-        delDevBtn.textContent = t.deleteDevice;
-        delDevBtn.onclick = (e) => {
+
+        const tile = document.createElement("div");
+        tile.className = "device-tile";
+        tile.innerHTML = `
+          <button class="tile-del" title="${t.deleteDevice}">&times;</button>
+          <span class="tile-icon">${this._deviceIcon(device)}</span>
+          <span class="tile-name">${this._escapeHtml(device)}</span>
+          <span class="tile-count">${commandCount}</span>
+        `;
+        tile.onclick = () => {
+          this._openDevice = { entityId: remote.entity_id, device };
+          this._renderContent();
+        };
+        tile.querySelector(".tile-del").onclick = (e) => {
           e.stopPropagation();
           this._deleteDevice(remote.entity_id, device, commands);
         };
-        actions.appendChild(delDevBtn);
-        dHeader.appendChild(actions);
-
-        const grid = document.createElement("div");
-        grid.className = "commands-grid";
-        grid.style.display = "none";
-        dHeader.onclick = () => {
-          const open = grid.style.display !== "none";
-          grid.style.display = open ? "none" : "flex";
-          dHeader.classList.toggle("open", !open);
-        };
-
-        for (const cmdName of Object.keys(commands)) {
-          const cmdInfo = commands[cmdName];
-          if (
-            filter &&
-            !device.toLowerCase().includes(filter) &&
-            !cmdName.toLowerCase().includes(filter)
-          ) {
-            continue;
-          }
-          const codeList = cmdInfo.codes || [];
-          const toggleBadge = cmdInfo.toggle
-            ? `<span class="toggle-badge" title="${this._escapeHtml(t.toggle)} &times;${codeList.length}">&times;${codeList.length}</span>`
-            : "";
-          const chip = document.createElement("button");
-          chip.type = "button";
-          chip.className = "cmd-chip";
-          chip.innerHTML = `${this._escapeHtml(cmdName)}${toggleBadge}`;
-          chip.onclick = () => this._showCommandDetail(remote.entity_id, device, cmdName, cmdInfo);
-          grid.appendChild(chip);
-        }
-
-        const addChip = document.createElement("button");
-        addChip.type = "button";
-        addChip.className = "cmd-chip add-chip";
-        addChip.textContent = "+";
-        addChip.title = t.learn;
-        addChip.onclick = (e) => {
-          e.stopPropagation();
-          this._learnCommand(remote.entity_id, device);
-        };
-        grid.appendChild(addChip);
-
-        deviceEl.appendChild(dHeader);
-        deviceEl.appendChild(grid);
-        remoteEl.appendChild(deviceEl);
+        grid.appendChild(tile);
       }
 
+      remoteEl.appendChild(grid);
       content.appendChild(remoteEl);
     }
+  }
+
+  _renderDeviceView(content) {
+    const t = this.t;
+    const { entityId, device } = this._openDevice;
+    const remote = this._data.find((r) => r.entity_id === entityId);
+
+    // The device could have just been deleted (e.g. from another client) -
+    // fall back to the grid instead of showing a dead end.
+    if (!remote || !remote.devices[device]) {
+      this._openDevice = null;
+      this._renderDeviceGrid(content);
+      return;
+    }
+
+    const commands = remote.devices[device];
+    const filter = this._filter;
+    content.innerHTML = "";
+
+    const wrap = document.createElement("div");
+    wrap.className = "remote";
+
+    const viewHeader = document.createElement("div");
+    viewHeader.className = "device-view-header";
+    viewHeader.innerHTML = `
+      <button class="back-btn" title="${t.back}"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></button>
+      <span class="title">${this._deviceIcon(device)} ${this._escapeHtml(device)}</span>
+    `;
+    viewHeader.querySelector(".back-btn").onclick = () => {
+      this._openDevice = null;
+      this._renderContent();
+    };
+    wrap.appendChild(viewHeader);
+
+    const list = document.createElement("div");
+    list.className = "command-list";
+
+    for (const cmdName of Object.keys(commands)) {
+      const cmdInfo = commands[cmdName];
+      if (filter && !cmdName.toLowerCase().includes(filter)) continue;
+      const codeList = cmdInfo.codes || [];
+      const toggleBadge = cmdInfo.toggle
+        ? `<span class="toggle-badge" title="${this._escapeHtml(t.toggle)} &times;${codeList.length}">&times;${codeList.length}</span>`
+        : "";
+      const row = document.createElement("div");
+      row.className = "command-row";
+      row.innerHTML = `
+        <span class="cmd-name">${this._escapeHtml(cmdName)}</span>
+        <span class="cmd-right">${toggleBadge}<span class="row-chevron">&#8250;</span></span>
+      `;
+      row.onclick = () => this._showCommandDetail(entityId, device, cmdName, cmdInfo);
+      list.appendChild(row);
+    }
+
+    const addRow = document.createElement("div");
+    addRow.className = "command-row add-command-row";
+    addRow.innerHTML = `<span class="cmd-name">${this._escapeHtml(t.learn)}</span>`;
+    addRow.onclick = () => this._learnCommand(entityId, device);
+    list.appendChild(addRow);
+
+    wrap.appendChild(list);
+    content.appendChild(wrap);
   }
 }
 
