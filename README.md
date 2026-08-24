@@ -87,6 +87,26 @@ those.
   the least tested part of the integration; please report if the panel
   doesn't appear.
 
+## Changelog
+
+### v1.1.1
+
+- Fixed the "Copy" button silently failing on setups where the
+  `navigator.clipboard` API is unavailable (e.g. plain-HTTP access to
+  Home Assistant, which has no secure-context clipboard access) — now
+  falls back to a hidden-textarea + `execCommand("copy")` approach.
+- Replaced every browser-native `confirm()` / `prompt()` / `alert()`
+  popup (delete command, delete device, rename, learn command, convert
+  result) with in-panel modal dialogs styled to match Home Assistant.
+- Added a language selector to the panel, with Ukrainian (Українська)
+  alongside English; the config-flow dialog is now also translated.
+- General UI polish: card-style layout, collapsible device rows with a
+  chevron indicator, escaped HTML in all user-supplied names to avoid
+  markup injection in the panel.
+- Confirmed (and documented) that there is intentionally no
+  "add device" flow — devices are created implicitly the first time
+  you learn a command on a new device name.
+
 ## Roadmap (deliberately not in v1.0.0)
 
 - Export/import full backup as JSON, one click.

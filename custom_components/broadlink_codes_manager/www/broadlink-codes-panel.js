@@ -3,6 +3,112 @@
 // served as a single static file by panel_custom.
 
 const DOMAIN = "broadlink_codes_manager";
+const LANG_KEY = "broadlink_codes_manager_lang";
+
+const STRINGS = {
+  en: {
+    title: "Broadlink Codes Manager",
+    subtitle: "Browse, test, copy, rename, delete and convert learned IR codes.",
+    filterPlaceholder: "Filter by device or command...",
+    loading: "Loading...",
+    errorLoading: "Error loading codes",
+    noRemotes: "No Broadlink remote entities found. Make sure a Broadlink device is set up in Home Assistant.",
+    noMatch: "No devices match the filter.",
+    learn: "+ Learn command",
+    deleteDevice: "Delete device",
+    test: "Test",
+    copy: "Copy",
+    convert: "Convert",
+    rename: "Rename",
+    delete: "Delete",
+    toggle: "toggle",
+    sentToast: (cmd) => `Sent "${cmd}"`,
+    sendFailed: (msg) => `Send failed: ${msg}`,
+    deletedToast: (cmd) => `Deleted "${cmd}"`,
+    deleteFailed: (msg) => `Delete failed: ${msg}`,
+    deletedDeviceToast: (dev) => `Deleted device "${dev}"`,
+    renamedToast: (name) => `Renamed to "${name}"`,
+    renameFailed: (msg) => `Rename failed: ${msg}`,
+    copied: "Copied to clipboard",
+    copyFailed: "Copy failed - your browser blocked clipboard access",
+    learning: (cmd) => `Learning "${cmd}" - press the remote button now...`,
+    learnedToast: (cmd, dev) => `Learned "${cmd}" on "${dev}"`,
+    learnFailed: (msg) => `Learn failed: ${msg}`,
+    conversionFailed: (msg) => `Conversion failed: ${msg}`,
+    confirmDeleteCmdTitle: "Delete command?",
+    confirmDeleteCmdBody: (cmd, dev) => `Delete command "${cmd}" on "${dev}"? This cannot be undone.`,
+    confirmDeleteDeviceTitle: "Delete device?",
+    confirmDeleteDeviceBody: (count, dev) =>
+      `Delete ALL ${count} command(s) on device "${dev}"? This removes the whole device and cannot be undone.`,
+    confirmBtn: "Delete",
+    cancelBtn: "Cancel",
+    renameTitle: "Rename command",
+    renameLabel: "New name",
+    saveBtn: "Save",
+    learnTitle: "Learn new command",
+    learnDeviceLabel: "Device name (new or existing)",
+    learnCommandLabel: "Command name",
+    learnBtn: "Learn",
+    convertTitle: "Converted code",
+    assumedCarrier: (hz) => `Assumed carrier: ${hz} Hz`,
+    pulses: (n) => `${n} pulses`,
+    caveats: "Caveats",
+    closeBtn: "Close",
+    language: "Language",
+    required: "This field is required.",
+  },
+  uk: {
+    title: "Менеджер кодів Broadlink",
+    subtitle: "Перегляд, тестування, копіювання, перейменування, видалення та конвертація вивчених ІЧ-кодів.",
+    filterPlaceholder: "Фільтр за пристроєм або командою...",
+    loading: "Завантаження...",
+    errorLoading: "Помилка завантаження кодів",
+    noRemotes: "Пульти Broadlink не знайдено. Переконайтеся, що пристрій Broadlink налаштовано в Home Assistant.",
+    noMatch: "Немає пристроїв, що відповідають фільтру.",
+    learn: "+ Навчити команду",
+    deleteDevice: "Видалити пристрій",
+    test: "Тест",
+    copy: "Копіювати",
+    convert: "Конвертувати",
+    rename: "Перейменувати",
+    delete: "Видалити",
+    toggle: "перемикач",
+    sentToast: (cmd) => `Надіслано "${cmd}"`,
+    sendFailed: (msg) => `Помилка надсилання: ${msg}`,
+    deletedToast: (cmd) => `Видалено "${cmd}"`,
+    deleteFailed: (msg) => `Помилка видалення: ${msg}`,
+    deletedDeviceToast: (dev) => `Пристрій "${dev}" видалено`,
+    renamedToast: (name) => `Перейменовано на "${name}"`,
+    renameFailed: (msg) => `Помилка перейменування: ${msg}`,
+    copied: "Скопійовано в буфер обміну",
+    copyFailed: "Не вдалося скопіювати - браузер заблокував доступ до буфера обміну",
+    learning: (cmd) => `Навчання "${cmd}" - натисніть кнопку на пульті...`,
+    learnedToast: (cmd, dev) => `Команду "${cmd}" вивчено на "${dev}"`,
+    learnFailed: (msg) => `Помилка навчання: ${msg}`,
+    conversionFailed: (msg) => `Помилка конвертації: ${msg}`,
+    confirmDeleteCmdTitle: "Видалити команду?",
+    confirmDeleteCmdBody: (cmd, dev) => `Видалити команду "${cmd}" на "${dev}"? Це неможливо скасувати.`,
+    confirmDeleteDeviceTitle: "Видалити пристрій?",
+    confirmDeleteDeviceBody: (count, dev) =>
+      `Видалити ВСІ (${count}) команди на пристрої "${dev}"? Це видалить весь пристрій і неможливо скасувати.`,
+    confirmBtn: "Видалити",
+    cancelBtn: "Скасувати",
+    renameTitle: "Перейменувати команду",
+    renameLabel: "Нова назва",
+    saveBtn: "Зберегти",
+    learnTitle: "Навчити нову команду",
+    learnDeviceLabel: "Назва пристрою (новий або наявний)",
+    learnCommandLabel: "Назва команди",
+    learnBtn: "Навчити",
+    convertTitle: "Конвертований код",
+    assumedCarrier: (hz) => `Припущена несуча частота: ${hz} Гц`,
+    pulses: (n) => `${n} імпульсів`,
+    caveats: "Застереження",
+    closeBtn: "Закрити",
+    language: "Мова",
+    required: "Це поле обов'язкове.",
+  },
+};
 
 class BroadlinkCodesPanel extends HTMLElement {
   constructor() {
@@ -10,6 +116,12 @@ class BroadlinkCodesPanel extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._data = null;
     this._filter = "";
+    this._lang = localStorage.getItem(LANG_KEY) || "en";
+    if (!STRINGS[this._lang]) this._lang = "en";
+  }
+
+  get t() {
+    return STRINGS[this._lang];
   }
 
   set hass(hass) {
@@ -61,6 +173,144 @@ class BroadlinkCodesPanel extends HTMLElement {
     }, 3500);
   }
 
+  // ---- Dialog helpers (in-panel popups, not the browser's native dialogs) ----
+
+  _closeDialog() {
+    const overlay = this.shadowRoot.getElementById("dialog-overlay");
+    if (overlay) overlay.remove();
+  }
+
+  _openDialog(innerHtml, onMount) {
+    this._closeDialog();
+    const overlay = document.createElement("div");
+    overlay.id = "dialog-overlay";
+    overlay.className = "dialog-overlay";
+    overlay.innerHTML = `<div class="dialog" role="dialog">${innerHtml}</div>`;
+    overlay.addEventListener("mousedown", (e) => {
+      if (e.target === overlay) this._closeDialog();
+    });
+    this.shadowRoot.appendChild(overlay);
+    const esc = (e) => {
+      if (e.key === "Escape") {
+        this._closeDialog();
+        window.removeEventListener("keydown", esc);
+      }
+    };
+    window.addEventListener("keydown", esc);
+    const dialog = overlay.querySelector(".dialog");
+    if (onMount) onMount(dialog);
+    return dialog;
+  }
+
+  _confirmDialog(title, body, confirmLabel) {
+    return new Promise((resolve) => {
+      const dialog = this._openDialog(`
+        <h2>${title}</h2>
+        <p>${body}</p>
+        <div class="dialog-actions">
+          <button class="ghost" id="dlg-cancel">${this.t.cancelBtn}</button>
+          <button class="danger" id="dlg-confirm">${confirmLabel || this.t.confirmBtn}</button>
+        </div>
+      `);
+      dialog.querySelector("#dlg-cancel").onclick = () => {
+        this._closeDialog();
+        resolve(false);
+      };
+      dialog.querySelector("#dlg-confirm").onclick = () => {
+        this._closeDialog();
+        resolve(true);
+      };
+    });
+  }
+
+  _promptDialog(title, label, defaultValue) {
+    return new Promise((resolve) => {
+      const dialog = this._openDialog(`
+        <h2>${title}</h2>
+        <label class="field-label">${label}
+          <input type="text" id="dlg-input" value="${defaultValue ? String(defaultValue).replace(/"/g, "&quot;") : ""}" />
+        </label>
+        <div class="dialog-error" id="dlg-error"></div>
+        <div class="dialog-actions">
+          <button class="ghost" id="dlg-cancel">${this.t.cancelBtn}</button>
+          <button id="dlg-confirm">${this.t.saveBtn}</button>
+        </div>
+      `);
+      const input = dialog.querySelector("#dlg-input");
+      const submit = () => {
+        const value = input.value.trim();
+        if (!value) {
+          dialog.querySelector("#dlg-error").textContent = this.t.required;
+          return;
+        }
+        this._closeDialog();
+        resolve(value);
+      };
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") submit();
+      });
+      setTimeout(() => input.focus(), 0);
+      dialog.querySelector("#dlg-cancel").onclick = () => {
+        this._closeDialog();
+        resolve(null);
+      };
+      dialog.querySelector("#dlg-confirm").onclick = submit;
+    });
+  }
+
+  _learnDialog() {
+    return new Promise((resolve) => {
+      const dialog = this._openDialog(`
+        <h2>${this.t.learnTitle}</h2>
+        <label class="field-label">${this.t.learnDeviceLabel}
+          <input type="text" id="dlg-device" />
+        </label>
+        <label class="field-label">${this.t.learnCommandLabel}
+          <input type="text" id="dlg-command" />
+        </label>
+        <div class="dialog-error" id="dlg-error"></div>
+        <div class="dialog-actions">
+          <button class="ghost" id="dlg-cancel">${this.t.cancelBtn}</button>
+          <button id="dlg-confirm">${this.t.learnBtn}</button>
+        </div>
+      `);
+      const deviceInput = dialog.querySelector("#dlg-device");
+      const commandInput = dialog.querySelector("#dlg-command");
+      const submit = () => {
+        const device = deviceInput.value.trim();
+        const command = commandInput.value.trim();
+        if (!device || !command) {
+          dialog.querySelector("#dlg-error").textContent = this.t.required;
+          return;
+        }
+        this._closeDialog();
+        resolve({ device, command });
+      };
+      commandInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") submit();
+      });
+      setTimeout(() => deviceInput.focus(), 0);
+      dialog.querySelector("#dlg-cancel").onclick = () => {
+        this._closeDialog();
+        resolve(null);
+      };
+      dialog.querySelector("#dlg-confirm").onclick = submit;
+    });
+  }
+
+  _infoDialog(title, bodyHtml) {
+    const dialog = this._openDialog(`
+      <h2>${title}</h2>
+      ${bodyHtml}
+      <div class="dialog-actions">
+        <button id="dlg-close">${this.t.closeBtn}</button>
+      </div>
+    `);
+    dialog.querySelector("#dlg-close").onclick = () => this._closeDialog();
+  }
+
+  // ---- Actions ----
+
   async _testCommand(entityId, device, command) {
     try {
       await this._hass.callService("remote", "send_command", {
@@ -68,47 +318,53 @@ class BroadlinkCodesPanel extends HTMLElement {
         device,
         command,
       });
-      this._toast(`Sent "${command}"`);
+      this._toast(this.t.sentToast(command));
     } catch (err) {
-      this._toast(`Send failed: ${err.message || err}`, true);
+      this._toast(this.t.sendFailed(err.message || err), true);
     }
   }
 
   async _deleteCommand(entityId, device, command) {
-    if (!confirm(`Delete command "${command}" on "${device}"?`)) return;
+    const ok = await this._confirmDialog(
+      this.t.confirmDeleteCmdTitle,
+      this.t.confirmDeleteCmdBody(command, device)
+    );
+    if (!ok) return;
     try {
       await this._hass.callService("remote", "delete_command", {
         entity_id: entityId,
         device,
         command,
       });
-      this._toast(`Deleted "${command}"`);
+      this._toast(this.t.deletedToast(command));
       await this._refresh();
     } catch (err) {
-      this._toast(`Delete failed: ${err.message || err}`, true);
+      this._toast(this.t.deleteFailed(err.message || err), true);
     }
   }
 
   async _deleteDevice(entityId, device, commands) {
     const names = Object.keys(commands);
-    if (!confirm(`Delete ALL ${names.length} commands on device "${device}"? This removes the whole device.`)) {
-      return;
-    }
+    const ok = await this._confirmDialog(
+      this.t.confirmDeleteDeviceTitle,
+      this.t.confirmDeleteDeviceBody(names.length, device)
+    );
+    if (!ok) return;
     try {
       await this._hass.callService("remote", "delete_command", {
         entity_id: entityId,
         device,
         command: names,
       });
-      this._toast(`Deleted device "${device}"`);
+      this._toast(this.t.deletedDeviceToast(device));
       await this._refresh();
     } catch (err) {
-      this._toast(`Delete failed: ${err.message || err}`, true);
+      this._toast(this.t.deleteFailed(err.message || err), true);
     }
   }
 
   async _renameCommand(entityId, device, oldName) {
-    const newName = prompt(`New name for "${oldName}"`, oldName);
+    const newName = await this._promptDialog(this.t.renameTitle, this.t.renameLabel, oldName);
     if (!newName || newName === oldName) return;
     try {
       await this._callService("rename_command", {
@@ -117,43 +373,67 @@ class BroadlinkCodesPanel extends HTMLElement {
         old_command: oldName,
         new_command: newName,
       });
-      this._toast(`Renamed to "${newName}"`);
+      this._toast(this.t.renamedToast(newName));
       await this._refresh();
     } catch (err) {
-      this._toast(`Rename failed: ${err.message || err}`, true);
+      this._toast(this.t.renameFailed(err.message || err), true);
     }
   }
 
   async _copyCode(code) {
+    // navigator.clipboard requires a secure context (HTTPS) and can be
+    // unavailable entirely - e.g. plain-HTTP local network access, which
+    // is common for Home Assistant. Fall back to a hidden textarea +
+    // execCommand("copy") so Copy still works in that case.
     try {
-      await navigator.clipboard.writeText(code);
-      this._toast("Copied to clipboard");
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(code);
+        this._toast(this.t.copied);
+        return;
+      }
+      throw new Error("clipboard API unavailable");
     } catch (err) {
-      this._toast("Copy failed - clipboard permission denied", true);
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = code;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        this.shadowRoot.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const ok = document.execCommand("copy");
+        textarea.remove();
+        if (ok) {
+          this._toast(this.t.copied);
+        } else {
+          this._toast(this.t.copyFailed, true);
+        }
+      } catch (fallbackErr) {
+        this._toast(this.t.copyFailed, true);
+      }
     }
   }
 
   async _learnCommand(entityId) {
-    const device = prompt("Device name (new or existing):");
-    if (!device) return;
-    const command = prompt("Command name:");
-    if (!command) return;
-    this._toast(`Learning "${command}" - press the remote button now...`);
+    const result = await this._learnDialog();
+    if (!result) return;
+    const { device, command } = result;
+    this._toast(this.t.learning(command));
     try {
-      const result = await this._callService(
+      const result2 = await this._callService(
         "learn_command",
         { entity_id: entityId, device, command, timeout: 20 },
         true
       );
-      const resp = result && result.response;
+      const resp = result2 && result2.response;
       if (resp && resp.status === "ok") {
-        this._toast(`Learned "${command}" on "${device}"`);
+        this._toast(this.t.learnedToast(command, device));
         await this._refresh();
       } else {
-        this._toast(`Learn failed: ${(resp && resp.error) || "unknown error"}`, true);
+        this._toast(this.t.learnFailed((resp && resp.error) || "unknown error"), true);
       }
     } catch (err) {
-      this._toast(`Learn failed: ${err.message || err}`, true);
+      this._toast(this.t.learnFailed(err.message || err), true);
     }
   }
 
@@ -167,63 +447,130 @@ class BroadlinkCodesPanel extends HTMLElement {
       );
       results = result && result.response && result.response.results;
     } catch (err) {
-      this._toast(`Conversion failed: ${err.message || err}`, true);
+      this._toast(this.t.conversionFailed(err.message || err), true);
       return;
     }
     if (!results) return;
 
     const meta = results._meta || {};
-    const lines = [];
+    const blocks = [];
     for (const key of Object.keys(results)) {
       if (key === "_meta") continue;
       const r = results[key];
-      lines.push(`\n--- ${r.label} ---\n${r.value || "ERROR: " + r.error}`);
+      const value = r.value ? this._escapeHtml(r.value) : `ERROR: ${this._escapeHtml(r.error || "")}`;
+      blocks.push(`<div class="convert-block"><div class="convert-label">${this._escapeHtml(r.label)}</div><code class="convert-value">${value}</code></div>`);
     }
-    const caveats = (meta.caveats || []).map((c) => `  - ${c}`).join("\n");
-    alert(
-      `Converted (assumed carrier ${meta.frequency_assumed || "?"} Hz, ` +
-        `${meta.pulse_count || "?"} pulses):\n${lines.join("\n")}\n\nCaveats:\n${caveats}`
+    const caveats = (meta.caveats || []).map((c) => `<li>${this._escapeHtml(c)}</li>`).join("");
+    this._infoDialog(
+      this.t.convertTitle,
+      `
+      <div class="convert-meta">${this.t.assumedCarrier(meta.frequency_assumed || "?")} &middot; ${this.t.pulses(meta.pulse_count || "?")}</div>
+      ${blocks.join("")}
+      ${caveats ? `<div class="convert-label">${this.t.caveats}</div><ul class="caveats">${caveats}</ul>` : ""}
+      `
     );
+  }
+
+  _escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = String(str);
+    return div.innerHTML;
+  }
+
+  _setLang(lang) {
+    if (!STRINGS[lang]) return;
+    this._lang = lang;
+    localStorage.setItem(LANG_KEY, lang);
+    this._render();
   }
 
   _render() {
     const root = this.shadowRoot;
+    const t = this.t;
     root.innerHTML = `
       <style>
-        :host { display: block; padding: 16px; font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif); }
-        h1 { font-size: 20px; margin: 0 0 4px; }
+        :host { display: block; padding: 16px; font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif);
+          color: var(--primary-text-color); }
+        .top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+        h1 { font-size: 22px; margin: 0 0 4px; font-weight: 500; }
         .sub { color: var(--secondary-text-color); margin-bottom: 16px; font-size: 13px; }
-        input.filter { width: 100%; max-width: 360px; padding: 8px; margin-bottom: 16px;
-          border-radius: 4px; border: 1px solid var(--divider-color); box-sizing: border-box; }
-        .remote { margin-bottom: 24px; border: 1px solid var(--divider-color); border-radius: 8px; overflow: hidden; }
-        .remote-header { background: var(--secondary-background-color); padding: 10px 14px; font-weight: 500;
-          display: flex; justify-content: space-between; align-items: center; }
-        .device { border-top: 1px solid var(--divider-color); }
+        select.lang { padding: 6px 8px; border-radius: 4px; border: 1px solid var(--divider-color);
+          background: var(--card-background-color); color: var(--primary-text-color); font-size: 13px; }
+        input.filter { width: 100%; max-width: 360px; padding: 9px 10px; margin-bottom: 18px;
+          border-radius: 8px; border: 1px solid var(--divider-color); box-sizing: border-box;
+          background: var(--card-background-color); color: var(--primary-text-color); font-size: 14px; }
+        .remote { margin-bottom: 20px; border-radius: 12px; overflow: hidden;
+          box-shadow: var(--ha-card-box-shadow, 0 1px 3px rgba(0,0,0,0.12)); background: var(--card-background-color); }
+        .remote-header { background: var(--card-background-color); padding: 14px 16px; font-weight: 600;
+          font-size: 15px; display: flex; justify-content: space-between; align-items: center;
+          border-bottom: 1px solid var(--divider-color); }
+        .remote-header .entity-id { font-weight: 400; color: var(--secondary-text-color); font-size: 12px; margin-left: 6px; }
+        .device { border-bottom: 1px solid var(--divider-color); }
+        .device:last-child { border-bottom: none; }
         .device-header { display: flex; justify-content: space-between; align-items: center;
-          padding: 8px 14px; cursor: pointer; background: var(--card-background-color); }
+          padding: 10px 16px; cursor: pointer; user-select: none; }
         .device-header:hover { background: var(--secondary-background-color); }
-        .device-actions button, .remote-header button { font-size: 12px; margin-left: 6px; }
+        .device-header .chevron { display: inline-block; transition: transform .15s; margin-right: 6px; opacity: .6; }
+        .device-header.open .chevron { transform: rotate(90deg); }
+        .count-badge { font-size: 11px; background: var(--secondary-background-color); color: var(--secondary-text-color);
+          border-radius: 10px; padding: 2px 8px; margin-left: 8px; }
         table { width: 100%; border-collapse: collapse; }
-        td, th { padding: 6px 14px; text-align: left; font-size: 13px; border-top: 1px solid var(--divider-color); }
-        code.preview { font-family: monospace; color: var(--secondary-text-color); }
+        td, th { padding: 8px 16px; text-align: left; font-size: 13px; border-top: 1px solid var(--divider-color); }
+        code.preview { font-family: var(--code-font-family, monospace); color: var(--secondary-text-color); font-size: 12px; }
+        .row-actions { text-align: right; white-space: nowrap; }
         button { cursor: pointer; border: none; background: var(--primary-color); color: var(--text-primary-color, #fff);
-          padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-right: 4px; }
-        button.ghost { background: transparent; color: var(--primary-color); border: 1px solid var(--primary-color); }
+          padding: 5px 10px; border-radius: 6px; font-size: 12px; margin-left: 6px; font-weight: 500; }
+        button:hover { filter: brightness(1.05); }
+        button.ghost { background: transparent; color: var(--primary-color); border: 1px solid var(--divider-color); }
         button.danger { background: var(--error-color, #db4437); }
-        .toggle-badge { font-size: 10px; background: var(--accent-color); color: #fff; border-radius: 3px; padding: 1px 4px; margin-left: 6px; }
-        .empty { color: var(--secondary-text-color); padding: 24px 0; }
+        .toggle-badge { font-size: 10px; background: var(--accent-color); color: #fff; border-radius: 4px; padding: 1px 5px; margin-left: 6px; }
+        .empty { color: var(--secondary-text-color); padding: 24px 4px; font-size: 14px; }
         .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
           background: var(--primary-text-color); color: var(--primary-background-color);
-          padding: 10px 16px; border-radius: 6px; opacity: 0; pointer-events: none; transition: opacity .2s; font-size: 13px; }
+          padding: 10px 16px; border-radius: 8px; opacity: 0; pointer-events: none; transition: opacity .2s; font-size: 13px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 20; }
         .toast.show { opacity: 0.95; }
         .toast.error { background: var(--error-color, #db4437); color: #fff; }
+
+        .dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex;
+          align-items: center; justify-content: center; z-index: 30; }
+        .dialog { background: var(--card-background-color); color: var(--primary-text-color); border-radius: 12px;
+          padding: 20px; width: 90%; max-width: 420px; max-height: 80vh; overflow-y: auto;
+          box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+        .dialog h2 { margin: 0 0 12px; font-size: 17px; }
+        .dialog p { margin: 0 0 8px; font-size: 14px; line-height: 1.5; }
+        .dialog-actions { display: flex; justify-content: flex-end; margin-top: 16px; gap: 8px; }
+        .dialog-actions button { margin-left: 0; padding: 8px 14px; font-size: 13px; }
+        .field-label { display: block; font-size: 12px; color: var(--secondary-text-color); margin-top: 10px; }
+        .field-label input { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px;
+          border-radius: 6px; border: 1px solid var(--divider-color); background: var(--card-background-color);
+          color: var(--primary-text-color); font-size: 14px; }
+        .dialog-error { color: var(--error-color, #db4437); font-size: 12px; min-height: 16px; margin-top: 6px; }
+        .convert-meta { font-size: 12px; color: var(--secondary-text-color); margin-bottom: 10px; }
+        .convert-block { margin-bottom: 10px; }
+        .convert-label { font-size: 12px; font-weight: 600; margin-bottom: 4px; margin-top: 8px; }
+        .convert-value { display: block; font-family: monospace; font-size: 12px; word-break: break-all;
+          background: var(--secondary-background-color); padding: 8px; border-radius: 6px; }
+        ul.caveats { margin: 4px 0 0; padding-left: 18px; font-size: 12px; color: var(--secondary-text-color); }
       </style>
-      <h1>Broadlink Codes Manager</h1>
-      <div class="sub">Browse, test, copy, rename, delete and convert learned IR codes.</div>
-      <input class="filter" type="search" placeholder="Filter by device or command..." />
+      <div class="top-row">
+        <div>
+          <h1>${t.title}</h1>
+          <div class="sub">${t.subtitle}</div>
+        </div>
+        <select class="lang" id="lang-select" title="${t.language}">
+          <option value="en" ${this._lang === "en" ? "selected" : ""}>English</option>
+          <option value="uk" ${this._lang === "uk" ? "selected" : ""}>Українська</option>
+        </select>
+      </div>
+      <input class="filter" type="search" placeholder="${t.filterPlaceholder}" />
       <div id="content"></div>
       <div id="toast" class="toast"></div>
     `;
+
+    root.getElementById("lang-select").addEventListener("change", (e) => {
+      this._setLang(e.target.value);
+    });
 
     const filterInput = root.querySelector("input.filter");
     filterInput.value = this._filter;
@@ -236,19 +583,20 @@ class BroadlinkCodesPanel extends HTMLElement {
   }
 
   _renderContent() {
+    const t = this.t;
     const content = this.shadowRoot.getElementById("content");
     if (!content) return;
 
     if (this._data === null) {
-      content.innerHTML = `<div class="empty">Loading...</div>`;
+      content.innerHTML = `<div class="empty">${t.loading}</div>`;
       return;
     }
     if (this._error) {
-      content.innerHTML = `<div class="empty">Error loading codes: ${this._error}</div>`;
+      content.innerHTML = `<div class="empty">${t.errorLoading}: ${this._escapeHtml(this._error)}</div>`;
       return;
     }
     if (!this._data.length) {
-      content.innerHTML = `<div class="empty">No Broadlink remote entities found. Make sure a Broadlink device is set up in Home Assistant.</div>`;
+      content.innerHTML = `<div class="empty">${t.noRemotes}</div>`;
       return;
     }
 
@@ -261,9 +609,9 @@ class BroadlinkCodesPanel extends HTMLElement {
 
       const header = document.createElement("div");
       header.className = "remote-header";
-      header.innerHTML = `<span>${remote.friendly_name} <code class="preview">(${remote.entity_id})</code></span>`;
+      header.innerHTML = `<span>${this._escapeHtml(remote.friendly_name)} <span class="entity-id">${this._escapeHtml(remote.entity_id)}</span></span>`;
       const learnBtn = document.createElement("button");
-      learnBtn.textContent = "+ Learn command";
+      learnBtn.textContent = t.learn;
       learnBtn.onclick = () => this._learnCommand(remote.entity_id);
       header.appendChild(learnBtn);
       remoteEl.appendChild(header);
@@ -277,8 +625,8 @@ class BroadlinkCodesPanel extends HTMLElement {
       if (!deviceNames.length) {
         const empty = document.createElement("div");
         empty.className = "empty";
-        empty.style.padding = "10px 14px";
-        empty.textContent = "No devices match the filter.";
+        empty.style.padding = "10px 16px";
+        empty.textContent = t.noMatch;
         remoteEl.appendChild(empty);
       }
 
@@ -290,12 +638,12 @@ class BroadlinkCodesPanel extends HTMLElement {
         const dHeader = document.createElement("div");
         dHeader.className = "device-header";
         const commandCount = Object.keys(commands).length;
-        dHeader.innerHTML = `<span>&#128193; ${device} <span class="toggle-badge" style="background:var(--secondary-text-color)">${commandCount}</span></span>`;
+        dHeader.innerHTML = `<span><span class="chevron">&#9656;</span>&#128193; ${this._escapeHtml(device)}<span class="count-badge">${commandCount}</span></span>`;
         const actions = document.createElement("span");
         actions.className = "device-actions";
         const delDevBtn = document.createElement("button");
         delDevBtn.className = "danger";
-        delDevBtn.textContent = "Delete device";
+        delDevBtn.textContent = t.deleteDevice;
         delDevBtn.onclick = (e) => {
           e.stopPropagation();
           this._deleteDevice(remote.entity_id, device, commands);
@@ -306,7 +654,9 @@ class BroadlinkCodesPanel extends HTMLElement {
         const table = document.createElement("table");
         table.style.display = "none";
         dHeader.onclick = () => {
-          table.style.display = table.style.display === "none" ? "table" : "none";
+          const open = table.style.display !== "none";
+          table.style.display = open ? "none" : "table";
+          dHeader.classList.toggle("open", !open);
         };
 
         for (const cmdName of Object.keys(commands)) {
@@ -318,42 +668,46 @@ class BroadlinkCodesPanel extends HTMLElement {
           ) {
             continue;
           }
-          const code = cmdInfo.codes[0] || "";
+          const codeList = cmdInfo.codes || [];
+          const code = codeList[0] || "";
           const preview = code.length > 24 ? code.slice(0, 24) + "..." : code;
           const row = document.createElement("tr");
+          const toggleBadge = cmdInfo.toggle
+            ? `<span class="toggle-badge" title="${codeList.length} variants">${t.toggle} &times;${codeList.length}</span>`
+            : "";
           row.innerHTML = `
-            <td>${cmdName}${cmdInfo.toggle ? '<span class="toggle-badge">toggle</span>' : ""}</td>
-            <td><code class="preview">${preview}</code></td>
+            <td>${this._escapeHtml(cmdName)}${toggleBadge}</td>
+            <td><code class="preview">${this._escapeHtml(preview)}</code></td>
             <td class="row-actions"></td>
           `;
           const cell = row.querySelector(".row-actions");
 
           const testBtn = document.createElement("button");
-          testBtn.textContent = "Test";
+          testBtn.textContent = t.test;
           testBtn.onclick = () => this._testCommand(remote.entity_id, device, cmdName);
           cell.appendChild(testBtn);
 
           const copyBtn = document.createElement("button");
           copyBtn.className = "ghost";
-          copyBtn.textContent = "Copy";
+          copyBtn.textContent = t.copy;
           copyBtn.onclick = () => this._copyCode(code);
           cell.appendChild(copyBtn);
 
           const convBtn = document.createElement("button");
           convBtn.className = "ghost";
-          convBtn.textContent = "Convert";
+          convBtn.textContent = t.convert;
           convBtn.onclick = () => this._showConverter(code);
           cell.appendChild(convBtn);
 
           const renameBtn = document.createElement("button");
           renameBtn.className = "ghost";
-          renameBtn.textContent = "Rename";
+          renameBtn.textContent = t.rename;
           renameBtn.onclick = () => this._renameCommand(remote.entity_id, device, cmdName);
           cell.appendChild(renameBtn);
 
           const delBtn = document.createElement("button");
           delBtn.className = "danger";
-          delBtn.textContent = "Delete";
+          delBtn.textContent = t.delete;
           delBtn.onclick = () => this._deleteCommand(remote.entity_id, device, cmdName);
           cell.appendChild(delBtn);
 
