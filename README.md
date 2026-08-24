@@ -4,7 +4,7 @@ A sidebar panel for Home Assistant to browse, test, copy, rename, delete
 and learn Broadlink IR/RF codes — without editing
 `.storage/broadlink_remote_<mac>_codes` by hand.
 
-> **Status: v1.3.1.** Built from a design spec and a review of the
+> **Status: v1.3.2.** Built from a design spec and a review of the
 > Broadlink integration's source in `home-assistant/core`. The
 > integration's service logic has an automated test suite (see
 > [Tests](#tests) below), but the integration itself is still **not yet
@@ -121,6 +121,14 @@ tests/
   doesn't appear.
 
 ## Changelog
+
+### v1.3.2
+
+- **Redesigned:** the command chip grid was replaced with an icon
+  tile grid for devices (TV, AC, light, fan, etc. get a matching
+  icon) and a plain vertical list for a device's commands once you
+  tap into it - easier to scan than a wrap of same-sized chips,
+  especially for devices with many commands.
 
 ### v1.3.1
 
