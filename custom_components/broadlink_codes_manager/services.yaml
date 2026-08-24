@@ -1,0 +1,92 @@
+list_codes:
+  name: List codes
+  description: >-
+    Returns every Broadlink remote entity and its learned IR/RF codes,
+    grouped by device. Used internally by the sidebar panel.
+
+rename_command:
+  name: Rename command
+  description: >-
+    Renames a learned command in place (no re-learning / no button press
+    needed). Reads and writes the live entity's Store directly, so there
+    is no race with Home Assistant's own periodic storage flush.
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: remote
+    device:
+      required: true
+      example: "Living Room TV"
+      selector:
+        text:
+    old_command:
+      required: true
+      example: "power"
+      selector:
+        text:
+    new_command:
+      required: true
+      example: "power_toggle"
+      selector:
+        text:
+
+convert_code:
+  name: Convert code
+  description: >-
+    Converts a single IR code into every other supported format
+    (Broadlink base64, raw microseconds, Pronto hex).
+  fields:
+    code:
+      required: true
+      selector:
+        text:
+    from_format:
+      required: true
+      selector:
+        select:
+          options:
+            - label: "Broadlink base64"
+              value: "broadlink_base64"
+            - label: "Raw microseconds (ESPHome/Tasmota)"
+              value: "raw_us"
+            - label: "Pronto hex"
+              value: "pronto"
+
+learn_command:
+  name: Learn command
+  description: >-
+    Learns one command on a Broadlink remote and reports success/failure
+    back to the caller (wraps the built-in remote.learn_command, which is
+    normally fire-and-forget). Use a new device name to create a new
+    device entry.
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: remote
+    device:
+      required: true
+      example: "Living Room AC"
+      selector:
+        text:
+    command:
+      required: true
+      example: "power"
+      selector:
+        text:
+    alternative:
+      required: false
+      default: false
+      selector:
+        boolean:
+    timeout:
+      required: false
+      default: 20
+      selector:
+        number:
+          min: 5
+          max: 60
+          unit_of_measurement: seconds
