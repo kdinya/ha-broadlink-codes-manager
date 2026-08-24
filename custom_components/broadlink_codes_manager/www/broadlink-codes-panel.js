@@ -44,8 +44,10 @@ const STRINGS = {
     renameTitle: "Rename command",
     renameLabel: "New name",
     saveBtn: "Save",
-    learnTitle: "Learn new command",
-    learnDeviceLabel: "Device name (new or existing)",
+    learnTitle: "Learn new device",
+    learnCommandTitle: "Learn command",
+    learnNewDeviceLabel: "New device name",
+    learnDeviceFixedLabel: "Device",
     learnCommandLabel: "Command name",
     learnBtn: "Learn",
     assumedCarrier: (hz) => `Assumed carrier: ${hz} Hz`,
@@ -58,7 +60,9 @@ const STRINGS = {
     codeLabel: "Code",
     copyToDeviceTitle: "Copy command to device",
     copyToDeviceRemoteLabel: "Target remote",
-    copyToDeviceDeviceLabel: "Target device (new or existing)",
+    copyToDeviceDeviceLabel: "Target device",
+    copyToDeviceNewOption: "+ New device...",
+    copyToDeviceNewDeviceLabel: "New device name",
     copyToDeviceCommandLabel: "Command name",
     copyToDeviceOverwriteLabel: "Overwrite if it already exists",
     copyBtn: "Copy",
@@ -103,8 +107,10 @@ const STRINGS = {
     renameTitle: "Перейменувати команду",
     renameLabel: "Нова назва",
     saveBtn: "Зберегти",
-    learnTitle: "Навчити нову команду",
-    learnDeviceLabel: "Назва пристрою (новий або наявний)",
+    learnTitle: "Навчити новий пристрій",
+    learnCommandTitle: "Навчити команду",
+    learnNewDeviceLabel: "Назва нового пристрою",
+    learnDeviceFixedLabel: "Пристрій",
     learnCommandLabel: "Назва команди",
     learnBtn: "Навчити",
     assumedCarrier: (hz) => `Припущена несуча частота: ${hz} Гц`,
@@ -117,7 +123,9 @@ const STRINGS = {
     codeLabel: "Код",
     copyToDeviceTitle: "Копіювати команду на пристрій",
     copyToDeviceRemoteLabel: "Пульт призначення",
-    copyToDeviceDeviceLabel: "Пристрій призначення (новий або наявний)",
+    copyToDeviceDeviceLabel: "Пристрій призначення",
+    copyToDeviceNewOption: "+ Новий пристрій...",
+    copyToDeviceNewDeviceLabel: "Назва нового пристрою",
     copyToDeviceCommandLabel: "Назва команди",
     copyToDeviceOverwriteLabel: "Перезаписати, якщо вже існує",
     copyBtn: "Копіювати",
@@ -304,29 +312,33 @@ class BroadlinkCodesPanel extends HTMLElement {
     });
   }
 
-  _learnDialog() {
+  _learnDialog(prefillDevice) {
     return new Promise((resolve) => {
+      const t = this.t;
+      const deviceFieldHtml = prefillDevice
+        ? `<div class="field-label">${t.learnDeviceFixedLabel}<div class="fixed-value">${this._escapeHtml(prefillDevice)}</div></div>`
+        : `<label class="field-label">${t.learnNewDeviceLabel}
+             <input type="text" id="dlg-device" />
+           </label>`;
       const dialog = this._openDialog(`
-        <h2>${this.t.learnTitle}</h2>
-        <label class="field-label">${this.t.learnDeviceLabel}
-          <input type="text" id="dlg-device" />
-        </label>
-        <label class="field-label">${this.t.learnCommandLabel}
+        <h2>${prefillDevice ? t.learnCommandTitle : t.learnTitle}</h2>
+        ${deviceFieldHtml}
+        <label class="field-label">${t.learnCommandLabel}
           <input type="text" id="dlg-command" />
         </label>
         <div class="dialog-error" id="dlg-error"></div>
         <div class="dialog-actions">
-          <button class="ghost" id="dlg-cancel">${this.t.cancelBtn}</button>
-          <button id="dlg-confirm">${this.t.learnBtn}</button>
+          <button class="ghost" id="dlg-cancel">${t.cancelBtn}</button>
+          <button id="dlg-confirm">${t.learnBtn}</button>
         </div>
       `);
       const deviceInput = dialog.querySelector("#dlg-device");
       const commandInput = dialog.querySelector("#dlg-command");
       const submit = () => {
-        const device = deviceInput.value.trim();
+        const device = prefillDevice || deviceInput.value.trim();
         const command = commandInput.value.trim();
         if (!device || !command) {
-          dialog.querySelector("#dlg-error").textContent = this.t.required;
+          dialog.querySelector("#dlg-error").textContent = t.required;
           return;
         }
         this._closeDialog();
@@ -335,7 +347,7 @@ class BroadlinkCodesPanel extends HTMLElement {
       commandInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") submit();
       });
-      setTimeout(() => deviceInput.focus(), 0);
+      setTimeout(() => (prefillDevice ? commandInput : deviceInput).focus(), 0);
       dialog.querySelector("#dlg-cancel").onclick = () => {
         this._closeDialog();
         resolve(null);
@@ -460,8 +472,8 @@ class BroadlinkCodesPanel extends HTMLElement {
     }
   }
 
-  async _learnCommand(entityId) {
-    const result = await this._learnDialog();
+  async _learnCommand(entityId, prefillDevice) {
+    const result = await this._learnDialog(prefillDevice);
     if (!result) return;
     const { device, command } = result;
     this._toast(this.t.learning(command));
@@ -536,10 +548,15 @@ class BroadlinkCodesPanel extends HTMLElement {
       const remote = remotes.find((r) => r.entity_id === eid);
       return remote ? Object.keys(remote.devices) : [];
     };
-    const deviceListId = "copy-dev-list";
-    const deviceOptions = deviceNamesForRemote(entityId)
-      .map((d) => `<option value="${this._escapeHtml(d)}"></option>`)
-      .join("");
+    const NEW_DEVICE = "__new__";
+    const buildDeviceOptions = (eid, preselect) => {
+      const names = deviceNamesForRemote(eid);
+      const opts = names
+        .map((d) => `<option value="${this._escapeHtml(d)}" ${d === preselect ? "selected" : ""}>${this._escapeHtml(d)}</option>`)
+        .join("");
+      const newSelected = !names.includes(preselect) ? "selected" : "";
+      return opts + `<option value="${NEW_DEVICE}" ${newSelected}>${t.copyToDeviceNewOption}</option>`;
+    };
 
     const dialog = this._openDialog(`
       <h2>${t.copyToDeviceTitle}</h2>
@@ -547,8 +564,10 @@ class BroadlinkCodesPanel extends HTMLElement {
         <select id="cpd-remote">${remoteOptions}</select>
       </label>
       <label class="field-label">${t.copyToDeviceDeviceLabel}
-        <input type="text" id="cpd-device" list="${deviceListId}" />
-        <datalist id="${deviceListId}">${deviceOptions}</datalist>
+        <select id="cpd-device-select">${buildDeviceOptions(entityId, device)}</select>
+      </label>
+      <label class="field-label" id="cpd-device-new-wrap" style="display:none;">${t.copyToDeviceNewDeviceLabel}
+        <input type="text" id="cpd-device-new" />
       </label>
       <label class="field-label">${t.copyToDeviceCommandLabel}
         <input type="text" id="cpd-command" value="${this._escapeHtml(cmdName)}" />
@@ -565,18 +584,30 @@ class BroadlinkCodesPanel extends HTMLElement {
     `);
 
     const remoteSelect = dialog.querySelector("#cpd-remote");
-    const deviceInput = dialog.querySelector("#cpd-device");
-    const deviceList = dialog.querySelector(`#${deviceListId}`);
+    const deviceSelect = dialog.querySelector("#cpd-device-select");
+    const newWrap = dialog.querySelector("#cpd-device-new-wrap");
+    const newInput = dialog.querySelector("#cpd-device-new");
+
+    const syncNewDeviceVisibility = () => {
+      const isNew = deviceSelect.value === NEW_DEVICE;
+      newWrap.style.display = isNew ? "block" : "none";
+      if (isNew) newInput.focus();
+    };
+    syncNewDeviceVisibility();
+
     remoteSelect.addEventListener("change", () => {
-      deviceList.innerHTML = deviceNamesForRemote(remoteSelect.value)
-        .map((d) => `<option value="${this._escapeHtml(d)}"></option>`)
-        .join("");
+      // Switching remote invalidates the previous device choice - default
+      // back to the first existing device on the new remote (or "new").
+      deviceSelect.innerHTML = buildDeviceOptions(remoteSelect.value, null);
+      syncNewDeviceVisibility();
     });
+    deviceSelect.addEventListener("change", syncNewDeviceVisibility);
 
     dialog.querySelector("#dlg-cancel").onclick = () => this._closeDialog();
     dialog.querySelector("#dlg-confirm").onclick = async () => {
       const targetEntityId = remoteSelect.value;
-      const targetDevice = deviceInput.value.trim();
+      const targetDevice =
+        deviceSelect.value === NEW_DEVICE ? newInput.value.trim() : deviceSelect.value;
       const targetCommand = dialog.querySelector("#cpd-command").value.trim();
       const overwrite = dialog.querySelector("#cpd-overwrite").checked;
       if (!targetDevice || !targetCommand) {
@@ -654,10 +685,18 @@ class BroadlinkCodesPanel extends HTMLElement {
         .device-header.open .chevron { transform: rotate(90deg); }
         .count-badge { font-size: 11px; background: var(--secondary-background-color); color: var(--secondary-text-color);
           border-radius: 10px; padding: 2px 8px; margin-left: 8px; }
-        table { width: 100%; border-collapse: collapse; }
-        td, th { padding: 8px 16px; text-align: left; font-size: 13px; border-top: 1px solid var(--divider-color); }
-        code.preview { font-family: var(--code-font-family, monospace); color: var(--secondary-text-color); font-size: 12px; }
-        .row-actions { text-align: right; white-space: nowrap; }
+        .commands-grid { display: none; flex-wrap: wrap; gap: 8px; padding: 4px 16px 16px; }
+        .cmd-chip { position: relative; background: var(--secondary-background-color);
+          color: var(--primary-text-color); border: 1px solid var(--divider-color);
+          border-radius: 20px; padding: 8px 16px; font-size: 13px; font-weight: 500;
+          margin-left: 0; }
+        .cmd-chip:hover { background: var(--primary-color); color: var(--text-primary-color, #fff);
+          border-color: var(--primary-color); }
+        .cmd-chip.add-chip { background: transparent; border-style: dashed; color: var(--primary-color);
+          font-size: 16px; font-weight: 600; padding: 8px 14px; min-width: 40px; text-align: center; }
+        .cmd-chip.add-chip:hover { background: var(--primary-color); color: var(--text-primary-color, #fff);
+          border-style: solid; }
+        .cmd-chip .toggle-badge { margin-left: 6px; }
         button { cursor: pointer; border: none; background: var(--primary-color); color: var(--text-primary-color, #fff);
           padding: 5px 10px; border-radius: 6px; font-size: 12px; margin-left: 6px; font-weight: 500; }
         button:hover { filter: brightness(1.05); }
@@ -685,15 +724,13 @@ class BroadlinkCodesPanel extends HTMLElement {
         .field-label input, .field-label select { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px;
           border-radius: 6px; border: 1px solid var(--divider-color); background: var(--card-background-color);
           color: var(--primary-text-color); font-size: 14px; font-family: inherit; }
+        .fixed-value { margin-top: 4px; padding: 8px; border-radius: 6px; background: var(--secondary-background-color);
+          color: var(--primary-text-color); font-size: 14px; }
         .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; }
         .checkbox-row input { margin: 0; }
         .full-code { display: block; font-family: var(--code-font-family, monospace); font-size: 12px;
           word-break: break-all; background: var(--secondary-background-color); padding: 10px; border-radius: 6px;
           margin: 8px 0 14px; max-height: 140px; overflow-y: auto; }
-        .cmd-name-btn { background: none; border: none; padding: 0; margin: 0; color: var(--primary-text-color);
-          font-size: 13px; font-weight: 500; cursor: pointer; text-align: left; text-decoration: underline;
-          text-decoration-color: transparent; }
-        .cmd-name-btn:hover { text-decoration-color: var(--primary-color); }
         .dialog-actions.wrap { flex-wrap: wrap; }
         .dialog-error { color: var(--error-color, #db4437); font-size: 12px; min-height: 16px; margin-top: 6px; }
       </style>
@@ -760,7 +797,7 @@ class BroadlinkCodesPanel extends HTMLElement {
 
       const header = document.createElement("div");
       header.className = "remote-header";
-      header.innerHTML = `<span>${this._escapeHtml(remote.friendly_name)} <span class="entity-id">${this._escapeHtml(remote.entity_id)}</span></span>`;
+      header.innerHTML = `<span>${this._escapeHtml(remote.friendly_name || remote.entity_id)} <span class="entity-id">${this._escapeHtml(remote.entity_id)}</span></span>`;
       const learnBtn = document.createElement("button");
       learnBtn.textContent = t.learn;
       learnBtn.onclick = () => this._learnCommand(remote.entity_id);
@@ -802,11 +839,12 @@ class BroadlinkCodesPanel extends HTMLElement {
         actions.appendChild(delDevBtn);
         dHeader.appendChild(actions);
 
-        const table = document.createElement("table");
-        table.style.display = "none";
+        const grid = document.createElement("div");
+        grid.className = "commands-grid";
+        grid.style.display = "none";
         dHeader.onclick = () => {
-          const open = table.style.display !== "none";
-          table.style.display = open ? "none" : "table";
+          const open = grid.style.display !== "none";
+          grid.style.display = open ? "none" : "flex";
           dHeader.classList.toggle("open", !open);
         };
 
@@ -820,55 +858,30 @@ class BroadlinkCodesPanel extends HTMLElement {
             continue;
           }
           const codeList = cmdInfo.codes || [];
-          const code = codeList[0] || "";
-          const preview = code.length > 24 ? code.slice(0, 24) + "..." : code;
-          const row = document.createElement("tr");
           const toggleBadge = cmdInfo.toggle
-            ? `<span class="toggle-badge" title="${codeList.length} variants">${t.toggle} &times;${codeList.length}</span>`
+            ? `<span class="toggle-badge" title="${this._escapeHtml(t.toggle)} &times;${codeList.length}">&times;${codeList.length}</span>`
             : "";
-          row.innerHTML = `
-            <td><button class="cmd-name-btn" type="button">${this._escapeHtml(cmdName)}</button>${toggleBadge}</td>
-            <td><code class="preview">${this._escapeHtml(preview)}</code></td>
-            <td class="row-actions"></td>
-          `;
-          row.querySelector(".cmd-name-btn").onclick = () =>
-            this._showCommandDetail(remote.entity_id, device, cmdName, cmdInfo);
-          const cell = row.querySelector(".row-actions");
-
-          const testBtn = document.createElement("button");
-          testBtn.textContent = t.test;
-          testBtn.onclick = () => this._testCommand(remote.entity_id, device, cmdName);
-          cell.appendChild(testBtn);
-
-          const copyBtn = document.createElement("button");
-          copyBtn.className = "ghost";
-          copyBtn.textContent = t.copy;
-          copyBtn.onclick = () => this._copyCode(code);
-          cell.appendChild(copyBtn);
-
-          const copyToDevBtn = document.createElement("button");
-          copyToDevBtn.className = "ghost";
-          copyToDevBtn.textContent = t.copyToDevice;
-          copyToDevBtn.onclick = () => this._copyToDeviceDialog(remote.entity_id, device, cmdName);
-          cell.appendChild(copyToDevBtn);
-
-          const renameBtn = document.createElement("button");
-          renameBtn.className = "ghost";
-          renameBtn.textContent = t.rename;
-          renameBtn.onclick = () => this._renameCommand(remote.entity_id, device, cmdName);
-          cell.appendChild(renameBtn);
-
-          const delBtn = document.createElement("button");
-          delBtn.className = "danger";
-          delBtn.textContent = t.delete;
-          delBtn.onclick = () => this._deleteCommand(remote.entity_id, device, cmdName);
-          cell.appendChild(delBtn);
-
-          table.appendChild(row);
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "cmd-chip";
+          chip.innerHTML = `${this._escapeHtml(cmdName)}${toggleBadge}`;
+          chip.onclick = () => this._showCommandDetail(remote.entity_id, device, cmdName, cmdInfo);
+          grid.appendChild(chip);
         }
 
+        const addChip = document.createElement("button");
+        addChip.type = "button";
+        addChip.className = "cmd-chip add-chip";
+        addChip.textContent = "+";
+        addChip.title = t.learn;
+        addChip.onclick = (e) => {
+          e.stopPropagation();
+          this._learnCommand(remote.entity_id, device);
+        };
+        grid.appendChild(addChip);
+
         deviceEl.appendChild(dHeader);
-        deviceEl.appendChild(table);
+        deviceEl.appendChild(grid);
         remoteEl.appendChild(deviceEl);
       }
 

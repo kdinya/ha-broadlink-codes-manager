@@ -145,10 +145,17 @@ def _register_services(hass: HomeAssistant) -> None:
         remotes = []
         for entity_id, entity in get_broadlink_remotes(hass):
             await async_ensure_storage_loaded(entity)
+            state = getattr(hass, "states", None)
+            state = state.get(entity_id) if state else None
+            friendly_name = (
+                (state.attributes.get("friendly_name") if state else None)
+                or getattr(entity, "name", None)
+                or entity_id
+            )
             remotes.append(
                 {
                     "entity_id": entity_id,
-                    "friendly_name": getattr(entity, "name", entity_id),
+                    "friendly_name": friendly_name,
                     "devices": _codes_payload(entity),
                 }
             )

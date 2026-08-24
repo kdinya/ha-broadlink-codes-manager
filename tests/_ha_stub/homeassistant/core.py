@@ -61,6 +61,17 @@ class HomeAssistant:
         self.services = FakeServices()
         self.http = _FakeHttp()
         self.config = _FakeConfig()
+        self.states = _FakeStates()
+
+
+class _FakeStates:
+    """Stand-in for ``hass.states`` - just enough surface (``.get()``) for
+    this integration's friendly-name lookup. Tests don't register real
+    states, so ``.get()`` always returns ``None`` here, same as real HA
+    would for an entity_id with no state yet."""
+
+    def get(self, entity_id: str):
+        return None
 
 
 class _FakeConfig:
