@@ -4,7 +4,7 @@ A sidebar panel for Home Assistant to browse, test, copy, rename, delete
 and learn Broadlink IR/RF codes — without editing
 `.storage/broadlink_remote_<mac>_codes` by hand.
 
-> **Status: v1.3.0.** Built from a design spec and a review of the
+> **Status: v1.3.1.** Built from a design spec and a review of the
 > Broadlink integration's source in `home-assistant/core`. The
 > integration's service logic has an automated test suite (see
 > [Tests](#tests) below), but the integration itself is still **not yet
@@ -121,6 +121,24 @@ tests/
   doesn't appear.
 
 ## Changelog
+
+### v1.3.1
+
+- **Fixed:** the panel could show the literal text "null" next to the
+  "Learn command" button when a Broadlink remote's name came from the
+  device registry rather than the entity itself. The friendly name is
+  now resolved the same way Home Assistant itself resolves it.
+- **Fixed:** the "Copy to device" dialog's device field is now a real
+  dropdown of existing devices (plus an explicit "new device" option)
+  instead of a text field with browser suggestions, which several
+  mobile browsers don't surface as a visible picker at all.
+- **Changed:** "Learn command" now has two distinct flows - the
+  button in a remote's header creates a new device, while a "+" inside
+  an existing device's command list learns a new command for that
+  device specifically (shown as a fixed, non-editable field so you
+  can't accidentally learn into the wrong device).
+- **Fixed:** long remote/device names no longer push the header's
+  action button onto its own line - the title now truncates instead.
 
 ### v1.3.0
 
