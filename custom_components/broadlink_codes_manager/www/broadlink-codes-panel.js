@@ -673,13 +673,17 @@ class BroadlinkCodesPanel extends HTMLElement {
         .remote { margin-bottom: 20px; border-radius: 12px; overflow: hidden;
           box-shadow: var(--ha-card-box-shadow, 0 1px 3px rgba(0,0,0,0.12)); background: var(--card-background-color); }
         .remote-header { background: var(--card-background-color); padding: 14px 16px; font-weight: 600;
-          font-size: 15px; display: flex; justify-content: space-between; align-items: center;
+          font-size: 15px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
           border-bottom: 1px solid var(--divider-color); }
-        .remote-header .entity-id { font-weight: 400; color: var(--secondary-text-color); font-size: 12px; margin-left: 6px; }
+        .remote-header .header-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .remote-header .entity-id { display: block; font-weight: 400; color: var(--secondary-text-color);
+          font-size: 11px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .remote-header button, .device-header button { flex-shrink: 0; white-space: nowrap; }
         .device { border-bottom: 1px solid var(--divider-color); }
         .device:last-child { border-bottom: none; }
-        .device-header { display: flex; justify-content: space-between; align-items: center;
+        .device-header { display: flex; justify-content: space-between; align-items: center; gap: 10px;
           padding: 10px 16px; cursor: pointer; user-select: none; }
+        .device-header .header-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .device-header:hover { background: var(--secondary-background-color); }
         .device-header .chevron { display: inline-block; transition: transform .15s; margin-right: 6px; opacity: .6; }
         .device-header.open .chevron { transform: rotate(90deg); }
@@ -797,7 +801,7 @@ class BroadlinkCodesPanel extends HTMLElement {
 
       const header = document.createElement("div");
       header.className = "remote-header";
-      header.innerHTML = `<span>${this._escapeHtml(remote.friendly_name || remote.entity_id)} <span class="entity-id">${this._escapeHtml(remote.entity_id)}</span></span>`;
+      header.innerHTML = `<span class="header-title">${this._escapeHtml(remote.friendly_name || remote.entity_id)}<span class="entity-id">${this._escapeHtml(remote.entity_id)}</span></span>`;
       const learnBtn = document.createElement("button");
       learnBtn.textContent = t.learn;
       learnBtn.onclick = () => this._learnCommand(remote.entity_id);
@@ -826,7 +830,7 @@ class BroadlinkCodesPanel extends HTMLElement {
         const dHeader = document.createElement("div");
         dHeader.className = "device-header";
         const commandCount = Object.keys(commands).length;
-        dHeader.innerHTML = `<span><span class="chevron">&#9656;</span>&#128193; ${this._escapeHtml(device)}<span class="count-badge">${commandCount}</span></span>`;
+        dHeader.innerHTML = `<span class="header-title"><span class="chevron">&#9656;</span>&#128193; ${this._escapeHtml(device)}<span class="count-badge">${commandCount}</span></span>`;
         const actions = document.createElement("span");
         actions.className = "device-actions";
         const delDevBtn = document.createElement("button");
