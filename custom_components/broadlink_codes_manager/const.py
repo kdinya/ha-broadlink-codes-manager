@@ -7,7 +7,6 @@ PANEL_JS_URL = "/broadlink_codes_manager_files/broadlink-codes-panel.js"
 
 SERVICE_LIST_CODES = "list_codes"
 SERVICE_RENAME_COMMAND = "rename_command"
-SERVICE_CONVERT_CODE = "convert_code"
 SERVICE_LEARN_COMMAND = "learn_command"
 SERVICE_COPY_COMMAND = "copy_command"
 

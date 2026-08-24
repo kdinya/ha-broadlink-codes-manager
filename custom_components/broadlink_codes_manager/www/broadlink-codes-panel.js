@@ -8,7 +8,7 @@ const LANG_KEY = "broadlink_codes_manager_lang";
 const STRINGS = {
   en: {
     title: "Broadlink Codes Manager",
-    subtitle: "Browse, test, copy, rename, delete and convert learned IR codes.",
+    subtitle: "Browse, test, copy, rename and delete learned IR codes.",
     filterPlaceholder: "Filter by device or command...",
     loading: "Loading...",
     errorLoading: "Error loading codes",
@@ -18,7 +18,6 @@ const STRINGS = {
     deleteDevice: "Delete device",
     test: "Test",
     copy: "Copy",
-    convert: "Convert",
     rename: "Rename",
     delete: "Delete",
     copyToDevice: "Copy to device...",
@@ -35,7 +34,6 @@ const STRINGS = {
     learning: (cmd) => `Learning "${cmd}" - press the remote button now...`,
     learnedToast: (cmd, dev) => `Learned "${cmd}" on "${dev}"`,
     learnFailed: (msg) => `Learn failed: ${msg}`,
-    conversionFailed: (msg) => `Conversion failed: ${msg}`,
     confirmDeleteCmdTitle: "Delete command?",
     confirmDeleteCmdBody: (cmd, dev) => `Delete command "${cmd}" on "${dev}"? This cannot be undone.`,
     confirmDeleteDeviceTitle: "Delete device?",
@@ -50,10 +48,8 @@ const STRINGS = {
     learnDeviceLabel: "Device name (new or existing)",
     learnCommandLabel: "Command name",
     learnBtn: "Learn",
-    convertTitle: "Converted code",
     assumedCarrier: (hz) => `Assumed carrier: ${hz} Hz`,
     pulses: (n) => `${n} pulses`,
-    caveats: "Caveats",
     closeBtn: "Close",
     language: "Language",
     required: "This field is required.",
@@ -71,7 +67,7 @@ const STRINGS = {
   },
   uk: {
     title: "Менеджер кодів Broadlink",
-    subtitle: "Перегляд, тестування, копіювання, перейменування, видалення та конвертація вивчених ІЧ-кодів.",
+    subtitle: "Перегляд, тестування, копіювання, перейменування та видалення вивчених ІЧ-кодів.",
     filterPlaceholder: "Фільтр за пристроєм або командою...",
     loading: "Завантаження...",
     errorLoading: "Помилка завантаження кодів",
@@ -81,7 +77,6 @@ const STRINGS = {
     deleteDevice: "Видалити пристрій",
     test: "Тест",
     copy: "Копіювати",
-    convert: "Конвертувати",
     rename: "Перейменувати",
     delete: "Видалити",
     copyToDevice: "Копіювати на пристрій...",
@@ -98,7 +93,6 @@ const STRINGS = {
     learning: (cmd) => `Навчання "${cmd}" - натисніть кнопку на пульті...`,
     learnedToast: (cmd, dev) => `Команду "${cmd}" вивчено на "${dev}"`,
     learnFailed: (msg) => `Помилка навчання: ${msg}`,
-    conversionFailed: (msg) => `Помилка конвертації: ${msg}`,
     confirmDeleteCmdTitle: "Видалити команду?",
     confirmDeleteCmdBody: (cmd, dev) => `Видалити команду "${cmd}" на "${dev}"? Це неможливо скасувати.`,
     confirmDeleteDeviceTitle: "Видалити пристрій?",
@@ -113,10 +107,8 @@ const STRINGS = {
     learnDeviceLabel: "Назва пристрою (новий або наявний)",
     learnCommandLabel: "Назва команди",
     learnBtn: "Навчити",
-    convertTitle: "Конвертований код",
     assumedCarrier: (hz) => `Припущена несуча частота: ${hz} Гц`,
     pulses: (n) => `${n} імпульсів`,
-    caveats: "Застереження",
     closeBtn: "Закрити",
     language: "Мова",
     required: "Це поле обов'язкове.",
@@ -491,40 +483,6 @@ class BroadlinkCodesPanel extends HTMLElement {
     }
   }
 
-  async _showConverter(code) {
-    let results;
-    try {
-      const result = await this._callService(
-        "convert_code",
-        { code, from_format: "broadlink_base64" },
-        true
-      );
-      results = result && result.response && result.response.results;
-    } catch (err) {
-      this._toast(this.t.conversionFailed(err.message || err), true);
-      return;
-    }
-    if (!results) return;
-
-    const meta = results._meta || {};
-    const blocks = [];
-    for (const key of Object.keys(results)) {
-      if (key === "_meta") continue;
-      const r = results[key];
-      const value = r.value ? this._escapeHtml(r.value) : `ERROR: ${this._escapeHtml(r.error || "")}`;
-      blocks.push(`<div class="convert-block"><div class="convert-label">${this._escapeHtml(r.label)}</div><code class="convert-value">${value}</code></div>`);
-    }
-    const caveats = (meta.caveats || []).map((c) => `<li>${this._escapeHtml(c)}</li>`).join("");
-    this._infoDialog(
-      this.t.convertTitle,
-      `
-      <div class="convert-meta">${this.t.assumedCarrier(meta.frequency_assumed || "?")} &middot; ${this.t.pulses(meta.pulse_count || "?")}</div>
-      ${blocks.join("")}
-      ${caveats ? `<div class="convert-label">${this.t.caveats}</div><ul class="caveats">${caveats}</ul>` : ""}
-      `
-    );
-  }
-
   // ---- Command detail + copy-to-device ----
 
   _showCommandDetail(entityId, device, cmdName, cmdInfo) {
@@ -543,7 +501,6 @@ class BroadlinkCodesPanel extends HTMLElement {
         <button id="dtl-test">${t.test}</button>
         <button class="ghost" id="dtl-copy">${t.copy}</button>
         <button class="ghost" id="dtl-copy-dev">${t.copyToDevice}</button>
-        <button class="ghost" id="dtl-convert">${t.convert}</button>
         <button class="ghost" id="dtl-rename">${t.rename}</button>
         <button class="danger" id="dtl-delete">${t.delete}</button>
         <button class="ghost" id="dlg-close">${t.closeBtn}</button>
@@ -555,7 +512,6 @@ class BroadlinkCodesPanel extends HTMLElement {
       this._closeDialog();
       this._copyToDeviceDialog(entityId, device, cmdName);
     };
-    dialog.querySelector("#dtl-convert").onclick = () => this._showConverter(code);
     dialog.querySelector("#dtl-rename").onclick = () => {
       this._closeDialog();
       this._renameCommand(entityId, device, cmdName);
@@ -740,12 +696,6 @@ class BroadlinkCodesPanel extends HTMLElement {
         .cmd-name-btn:hover { text-decoration-color: var(--primary-color); }
         .dialog-actions.wrap { flex-wrap: wrap; }
         .dialog-error { color: var(--error-color, #db4437); font-size: 12px; min-height: 16px; margin-top: 6px; }
-        .convert-meta { font-size: 12px; color: var(--secondary-text-color); margin-bottom: 10px; }
-        .convert-block { margin-bottom: 10px; }
-        .convert-label { font-size: 12px; font-weight: 600; margin-bottom: 4px; margin-top: 8px; }
-        .convert-value { display: block; font-family: monospace; font-size: 12px; word-break: break-all;
-          background: var(--secondary-background-color); padding: 8px; border-radius: 6px; }
-        ul.caveats { margin: 4px 0 0; padding-left: 18px; font-size: 12px; color: var(--secondary-text-color); }
       </style>
       <div class="app-toolbar">
         <button class="menu-btn" id="menu-btn" title="${t.menuToggle}" aria-label="${t.menuToggle}">
@@ -901,12 +851,6 @@ class BroadlinkCodesPanel extends HTMLElement {
           copyToDevBtn.textContent = t.copyToDevice;
           copyToDevBtn.onclick = () => this._copyToDeviceDialog(remote.entity_id, device, cmdName);
           cell.appendChild(copyToDevBtn);
-
-          const convBtn = document.createElement("button");
-          convBtn.className = "ghost";
-          convBtn.textContent = t.convert;
-          convBtn.onclick = () => this._showConverter(code);
-          cell.appendChild(convBtn);
 
           const renameBtn = document.createElement("button");
           renameBtn.className = "ghost";

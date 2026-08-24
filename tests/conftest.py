@@ -4,8 +4,7 @@ Puts the repo on sys.path so ``custom_components.broadlink_codes_manager``
 is importable, and - only for the modules that need it
 (test_services.py / test_entity_access.py) - installs a lightweight stub
 of the ``homeassistant`` package into ``sys.modules`` *before* those
-modules import it. The pure-logic tests (converters) never touch this
-stub at all.
+modules import it.
 """
 from __future__ import annotations
 

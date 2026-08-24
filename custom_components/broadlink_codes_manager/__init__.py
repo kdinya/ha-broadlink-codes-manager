@@ -1,9 +1,9 @@
 """Broadlink Codes Manager.
 
 A maintenance panel for the codes learned by Home Assistant's Broadlink
-`remote` entities: browse, test, copy, rename, delete, convert between IR
-code formats, and learn new commands - without touching
-`.storage/broadlink_remote_<mac>_codes` by hand.
+`remote` entities: browse, test, copy, rename, delete, and learn new
+commands - without touching `.storage/broadlink_remote_<mac>_codes` by
+hand.
 
 Setup is entirely through the UI (Settings -> Devices & Services -> Add
 Integration -> Broadlink Codes Manager -> Submit). No YAML editing
@@ -24,13 +24,11 @@ from .const import (
     DOMAIN,
     PANEL_JS_URL,
     PANEL_URL_PATH,
-    SERVICE_CONVERT_CODE,
     SERVICE_COPY_COMMAND,
     SERVICE_LEARN_COMMAND,
     SERVICE_LIST_CODES,
     SERVICE_RENAME_COMMAND,
 )
-from .converter import FORMATS, convert_all
 from .entity_access import (
     async_ensure_storage_loaded,
     get_broadlink_remotes,
@@ -46,13 +44,6 @@ RENAME_SCHEMA = vol.Schema(
         vol.Required("device"): str,
         vol.Required("old_command"): str,
         vol.Required("new_command"): str,
-    }
-)
-
-CONVERT_SCHEMA = vol.Schema(
-    {
-        vol.Required("code"): str,
-        vol.Required("from_format"): vol.In(list(FORMATS.keys())),
     }
 )
 
@@ -81,7 +72,6 @@ COPY_SCHEMA = vol.Schema(
 ALL_SERVICES = (
     SERVICE_LIST_CODES,
     SERVICE_RENAME_COMMAND,
-    SERVICE_CONVERT_CODE,
     SERVICE_LEARN_COMMAND,
     SERVICE_COPY_COMMAND,
 )
@@ -191,9 +181,6 @@ def _register_services(hass: HomeAssistant) -> None:
         else:
             await _do_rename()
 
-    async def handle_convert_code(call: ServiceCall) -> dict:
-        return {"results": convert_all(call.data["code"], call.data["from_format"])}
-
     async def handle_learn_command(call: ServiceCall) -> dict:
         """Thin wrapper around remote.learn_command that reports the
         outcome back to the panel (the underlying service is
@@ -289,13 +276,6 @@ def _register_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(
         DOMAIN, SERVICE_RENAME_COMMAND, handle_rename_command, schema=RENAME_SCHEMA
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_CONVERT_CODE,
-        handle_convert_code,
-        schema=CONVERT_SCHEMA,
-        supports_response=SupportsResponse.ONLY,
     )
     hass.services.async_register(
         DOMAIN,

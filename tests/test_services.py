@@ -123,24 +123,6 @@ async def test_learn_command_reports_error_status_on_failure(hass_with_remotes, 
     assert "no signal received" in result["error"]
 
 
-async def test_convert_code_service_delegates_to_converter(hass_with_remotes, make_remote):
-    from custom_components.broadlink_codes_manager.converter import IRSignal, to_broadlink
-
-    hass = hass_with_remotes(make_remote("remote.a", "A", {}))
-    await _setup(hass)
-
-    code = to_broadlink(IRSignal(timings=[9000, -4500, 560, -560, 560, -1690], frequency=38000))
-    result = await hass.services.async_call(
-        DOMAIN,
-        "convert_code",
-        {"code": code, "from_format": "broadlink_base64"},
-    )
-
-    assert "raw_us" in result["results"]
-    assert "pronto" in result["results"]
-    assert result["results"]["_meta"]["frequency_assumed"] == 38000
-
-
 # ---- copy_command ----
 
 

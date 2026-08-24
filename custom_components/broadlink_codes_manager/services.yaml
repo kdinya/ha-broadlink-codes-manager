@@ -32,28 +32,6 @@ rename_command:
       selector:
         text:
 
-convert_code:
-  name: Convert code
-  description: >-
-    Converts a single IR code into every other supported format
-    (Broadlink base64, raw microseconds, Pronto hex).
-  fields:
-    code:
-      required: true
-      selector:
-        text:
-    from_format:
-      required: true
-      selector:
-        select:
-          options:
-            - label: "Broadlink base64"
-              value: "broadlink_base64"
-            - label: "Raw microseconds (ESPHome/Tasmota)"
-              value: "raw_us"
-            - label: "Pronto hex"
-              value: "pronto"
-
 copy_command:
   name: Copy command
   description: >-
