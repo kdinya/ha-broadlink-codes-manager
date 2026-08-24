@@ -9,6 +9,7 @@ SERVICE_LIST_CODES = "list_codes"
 SERVICE_RENAME_COMMAND = "rename_command"
 SERVICE_CONVERT_CODE = "convert_code"
 SERVICE_LEARN_COMMAND = "learn_command"
+SERVICE_COPY_COMMAND = "copy_command"
 
 # hass.data[DOMAIN] key holding the set of active config entry IDs, used to
 # register services/panel once on the first entry and clean up on the last.

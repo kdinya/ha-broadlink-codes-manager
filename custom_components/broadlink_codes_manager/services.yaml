@@ -54,6 +54,52 @@ convert_code:
             - label: "Pronto hex"
               value: "pronto"
 
+copy_command:
+  name: Copy command
+  description: >-
+    Copies a learned command onto another device, optionally on a
+    different Broadlink remote entity - codes aren't tied to a specific
+    remote's MAC address, so this is a plain data copy, not a re-learn.
+  fields:
+    entity_id:
+      required: true
+      example: "remote.living_room_broadlink"
+      selector:
+        entity:
+          domain: remote
+    device:
+      required: true
+      example: "Living Room TV"
+      selector:
+        text:
+    command:
+      required: true
+      example: "power"
+      selector:
+        text:
+    target_entity_id:
+      required: false
+      description: "Defaults to the same remote entity as entity_id."
+      selector:
+        entity:
+          domain: remote
+    target_device:
+      required: true
+      example: "Bedroom TV"
+      selector:
+        text:
+    target_command:
+      required: false
+      description: "Defaults to the same name as command."
+      selector:
+        text:
+    overwrite:
+      required: false
+      default: false
+      description: "Replace the target command if it already exists."
+      selector:
+        boolean:
+
 learn_command:
   name: Learn command
   description: >-

@@ -18,6 +18,13 @@ from .model import IRSignal
 PRONTO_LEARNED_FORMAT = 0x0000
 PRONTO_UNIT_CONST = 0.241246  # microseconds per Pronto tick, per freq_code=1
 
+# Pronto's raw/learned layout is strictly (mark, space) pairs - it has no
+# way to represent a trailing, unmatched mark. Real learned IR signals
+# commonly end exactly that way (a final burst with no explicit trailing
+# gap recorded). Rather than silently dropping that last mark, pad it
+# with this synthetic trailing gap so no data is lost on conversion.
+DEFAULT_TRAILING_GAP_US = 100_000
+
 
 def parse_pronto(code: str) -> IRSignal:
     words = [int(w, 16) for w in code.strip().split()]
@@ -51,10 +58,16 @@ def parse_pronto(code: str) -> IRSignal:
 def to_pronto(signal: IRSignal) -> str:
     frequency = signal.frequency or 38000
     freq_code = round(1_000_000 / (frequency * PRONTO_UNIT_CONST))
-    pair_count = len(signal.timings) // 2
+
+    timings = list(signal.timings)
+    if len(timings) % 2 != 0:
+        # Unmatched trailing mark - pad with a synthetic gap instead of
+        # silently dropping it (see DEFAULT_TRAILING_GAP_US above).
+        timings.append(-DEFAULT_TRAILING_GAP_US)
+    pair_count = len(timings) // 2
 
     words = [PRONTO_LEARNED_FORMAT, freq_code, pair_count, 0x0000]
-    for t in signal.timings[: pair_count * 2]:
+    for t in timings:
         ticks = max(1, round(abs(t) * frequency / 1_000_000))
         words.append(ticks)
 

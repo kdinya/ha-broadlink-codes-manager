@@ -21,6 +21,7 @@ const STRINGS = {
     convert: "Convert",
     rename: "Rename",
     delete: "Delete",
+    copyToDevice: "Copy to device...",
     toggle: "toggle",
     sentToast: (cmd) => `Sent "${cmd}"`,
     sendFailed: (msg) => `Send failed: ${msg}`,
@@ -56,6 +57,17 @@ const STRINGS = {
     closeBtn: "Close",
     language: "Language",
     required: "This field is required.",
+    menuToggle: "Show/hide sidebar",
+    commandDetailTitle: "Command",
+    codeLabel: "Code",
+    copyToDeviceTitle: "Copy command to device",
+    copyToDeviceRemoteLabel: "Target remote",
+    copyToDeviceDeviceLabel: "Target device (new or existing)",
+    copyToDeviceCommandLabel: "Command name",
+    copyToDeviceOverwriteLabel: "Overwrite if it already exists",
+    copyBtn: "Copy",
+    copiedDeviceToast: (cmd, dev) => `Copied "${cmd}" to "${dev}"`,
+    copyToDeviceFailed: (msg) => `Copy failed: ${msg}`,
   },
   uk: {
     title: "Менеджер кодів Broadlink",
@@ -72,6 +84,7 @@ const STRINGS = {
     convert: "Конвертувати",
     rename: "Перейменувати",
     delete: "Видалити",
+    copyToDevice: "Копіювати на пристрій...",
     toggle: "перемикач",
     sentToast: (cmd) => `Надіслано "${cmd}"`,
     sendFailed: (msg) => `Помилка надсилання: ${msg}`,
@@ -107,6 +120,17 @@ const STRINGS = {
     closeBtn: "Закрити",
     language: "Мова",
     required: "Це поле обов'язкове.",
+    menuToggle: "Показати/сховати бокову панель",
+    commandDetailTitle: "Команда",
+    codeLabel: "Код",
+    copyToDeviceTitle: "Копіювати команду на пристрій",
+    copyToDeviceRemoteLabel: "Пульт призначення",
+    copyToDeviceDeviceLabel: "Пристрій призначення (новий або наявний)",
+    copyToDeviceCommandLabel: "Назва команди",
+    copyToDeviceOverwriteLabel: "Перезаписати, якщо вже існує",
+    copyBtn: "Копіювати",
+    copiedDeviceToast: (cmd, dev) => `Команду "${cmd}" скопійовано на "${dev}"`,
+    copyToDeviceFailed: (msg) => `Помилка копіювання: ${msg}`,
   },
 };
 
@@ -133,6 +157,36 @@ class BroadlinkCodesPanel extends HTMLElement {
 
   get hass() {
     return this._hass;
+  }
+
+  // panel_custom sets these properties on every custom panel element; we
+  // don't need them for layout logic, but must accept them (harmless
+  // no-ops) so HA's frontend doesn't hit an error setting an
+  // unrecognized property. `narrow` in particular is what tells a panel
+  // the sidebar is currently collapsed, which is why panels need their
+  // own menu button - see _toggleMenu().
+  set narrow(value) {
+    this._narrow = value;
+  }
+
+  get narrow() {
+    return this._narrow;
+  }
+
+  set route(value) {
+    this._route = value;
+  }
+
+  set panel(value) {
+    this._panel = value;
+  }
+
+  _toggleMenu() {
+    // Standard Home Assistant frontend event: any panel can dispatch
+    // this to open/close the sidebar drawer. Without it, a custom panel
+    // like this one has no way back to the sidebar on narrow (mobile)
+    // layouts, or when the user's sidebar is set to auto-hide.
+    this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }));
   }
 
   async _callService(service, data, wantsResponse) {
@@ -471,6 +525,127 @@ class BroadlinkCodesPanel extends HTMLElement {
     );
   }
 
+  // ---- Command detail + copy-to-device ----
+
+  _showCommandDetail(entityId, device, cmdName, cmdInfo) {
+    const t = this.t;
+    const codeList = cmdInfo.codes || [];
+    const code = codeList[0] || "";
+    const codesHtml = codeList
+      .map((c, i) => `<code class="full-code">${codeList.length > 1 ? `#${i + 1}: ` : ""}${this._escapeHtml(c)}</code>`)
+      .join("");
+
+    const dialog = this._openDialog(`
+      <h2>${this._escapeHtml(cmdName)}</h2>
+      <div class="field-label">${t.codeLabel}</div>
+      ${codesHtml}
+      <div class="dialog-actions wrap">
+        <button id="dtl-test">${t.test}</button>
+        <button class="ghost" id="dtl-copy">${t.copy}</button>
+        <button class="ghost" id="dtl-copy-dev">${t.copyToDevice}</button>
+        <button class="ghost" id="dtl-convert">${t.convert}</button>
+        <button class="ghost" id="dtl-rename">${t.rename}</button>
+        <button class="danger" id="dtl-delete">${t.delete}</button>
+        <button class="ghost" id="dlg-close">${t.closeBtn}</button>
+      </div>
+    `);
+    dialog.querySelector("#dtl-test").onclick = () => this._testCommand(entityId, device, cmdName);
+    dialog.querySelector("#dtl-copy").onclick = () => this._copyCode(code);
+    dialog.querySelector("#dtl-copy-dev").onclick = () => {
+      this._closeDialog();
+      this._copyToDeviceDialog(entityId, device, cmdName);
+    };
+    dialog.querySelector("#dtl-convert").onclick = () => this._showConverter(code);
+    dialog.querySelector("#dtl-rename").onclick = () => {
+      this._closeDialog();
+      this._renameCommand(entityId, device, cmdName);
+    };
+    dialog.querySelector("#dtl-delete").onclick = () => {
+      this._closeDialog();
+      this._deleteCommand(entityId, device, cmdName);
+    };
+    dialog.querySelector("#dlg-close").onclick = () => this._closeDialog();
+  }
+
+  _copyToDeviceDialog(entityId, device, cmdName) {
+    const t = this.t;
+    const remotes = this._data || [];
+    const remoteOptions = remotes
+      .map(
+        (r) =>
+          `<option value="${this._escapeHtml(r.entity_id)}" ${r.entity_id === entityId ? "selected" : ""}>${this._escapeHtml(r.friendly_name)}</option>`
+      )
+      .join("");
+    const deviceNamesForRemote = (eid) => {
+      const remote = remotes.find((r) => r.entity_id === eid);
+      return remote ? Object.keys(remote.devices) : [];
+    };
+    const deviceListId = "copy-dev-list";
+    const deviceOptions = deviceNamesForRemote(entityId)
+      .map((d) => `<option value="${this._escapeHtml(d)}"></option>`)
+      .join("");
+
+    const dialog = this._openDialog(`
+      <h2>${t.copyToDeviceTitle}</h2>
+      <label class="field-label">${t.copyToDeviceRemoteLabel}
+        <select id="cpd-remote">${remoteOptions}</select>
+      </label>
+      <label class="field-label">${t.copyToDeviceDeviceLabel}
+        <input type="text" id="cpd-device" list="${deviceListId}" />
+        <datalist id="${deviceListId}">${deviceOptions}</datalist>
+      </label>
+      <label class="field-label">${t.copyToDeviceCommandLabel}
+        <input type="text" id="cpd-command" value="${this._escapeHtml(cmdName)}" />
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="cpd-overwrite" />
+        ${t.copyToDeviceOverwriteLabel}
+      </label>
+      <div class="dialog-error" id="dlg-error"></div>
+      <div class="dialog-actions">
+        <button class="ghost" id="dlg-cancel">${t.cancelBtn}</button>
+        <button id="dlg-confirm">${t.copyBtn}</button>
+      </div>
+    `);
+
+    const remoteSelect = dialog.querySelector("#cpd-remote");
+    const deviceInput = dialog.querySelector("#cpd-device");
+    const deviceList = dialog.querySelector(`#${deviceListId}`);
+    remoteSelect.addEventListener("change", () => {
+      deviceList.innerHTML = deviceNamesForRemote(remoteSelect.value)
+        .map((d) => `<option value="${this._escapeHtml(d)}"></option>`)
+        .join("");
+    });
+
+    dialog.querySelector("#dlg-cancel").onclick = () => this._closeDialog();
+    dialog.querySelector("#dlg-confirm").onclick = async () => {
+      const targetEntityId = remoteSelect.value;
+      const targetDevice = deviceInput.value.trim();
+      const targetCommand = dialog.querySelector("#cpd-command").value.trim();
+      const overwrite = dialog.querySelector("#cpd-overwrite").checked;
+      if (!targetDevice || !targetCommand) {
+        dialog.querySelector("#dlg-error").textContent = t.required;
+        return;
+      }
+      this._closeDialog();
+      try {
+        await this._callService("copy_command", {
+          entity_id: entityId,
+          device,
+          command: cmdName,
+          target_entity_id: targetEntityId,
+          target_device: targetDevice,
+          target_command: targetCommand,
+          overwrite,
+        });
+        this._toast(t.copiedDeviceToast(targetCommand, targetDevice));
+        await this._refresh();
+      } catch (err) {
+        this._toast(t.copyToDeviceFailed(err.message || err), true);
+      }
+    };
+  }
+
   _escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = String(str);
@@ -491,6 +666,15 @@ class BroadlinkCodesPanel extends HTMLElement {
       <style>
         :host { display: block; padding: 16px; font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif);
           color: var(--primary-text-color); }
+        .app-toolbar { display: flex; align-items: center; gap: 4px; margin: -16px -16px 8px; padding: 8px 8px;
+          background: var(--app-header-background-color, var(--primary-background-color));
+          border-bottom: 1px solid var(--divider-color); position: sticky; top: 0; z-index: 5; }
+        .menu-btn { background: transparent; color: var(--primary-text-color); padding: 8px; margin: 0;
+          border-radius: 50%; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+          box-sizing: border-box; }
+        .menu-btn:hover { background: var(--secondary-background-color); }
+        .menu-btn svg { width: 24px; height: 24px; fill: currentColor; }
+        .app-toolbar .app-title { font-weight: 500; font-size: 16px; margin-left: 4px; }
         .top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
         h1 { font-size: 22px; margin: 0 0 4px; font-weight: 500; }
         .sub { color: var(--secondary-text-color); margin-bottom: 16px; font-size: 13px; }
@@ -542,9 +726,19 @@ class BroadlinkCodesPanel extends HTMLElement {
         .dialog-actions { display: flex; justify-content: flex-end; margin-top: 16px; gap: 8px; }
         .dialog-actions button { margin-left: 0; padding: 8px 14px; font-size: 13px; }
         .field-label { display: block; font-size: 12px; color: var(--secondary-text-color); margin-top: 10px; }
-        .field-label input { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px;
+        .field-label input, .field-label select { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px;
           border-radius: 6px; border: 1px solid var(--divider-color); background: var(--card-background-color);
-          color: var(--primary-text-color); font-size: 14px; }
+          color: var(--primary-text-color); font-size: 14px; font-family: inherit; }
+        .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; }
+        .checkbox-row input { margin: 0; }
+        .full-code { display: block; font-family: var(--code-font-family, monospace); font-size: 12px;
+          word-break: break-all; background: var(--secondary-background-color); padding: 10px; border-radius: 6px;
+          margin: 8px 0 14px; max-height: 140px; overflow-y: auto; }
+        .cmd-name-btn { background: none; border: none; padding: 0; margin: 0; color: var(--primary-text-color);
+          font-size: 13px; font-weight: 500; cursor: pointer; text-align: left; text-decoration: underline;
+          text-decoration-color: transparent; }
+        .cmd-name-btn:hover { text-decoration-color: var(--primary-color); }
+        .dialog-actions.wrap { flex-wrap: wrap; }
         .dialog-error { color: var(--error-color, #db4437); font-size: 12px; min-height: 16px; margin-top: 6px; }
         .convert-meta { font-size: 12px; color: var(--secondary-text-color); margin-bottom: 10px; }
         .convert-block { margin-bottom: 10px; }
@@ -553,6 +747,11 @@ class BroadlinkCodesPanel extends HTMLElement {
           background: var(--secondary-background-color); padding: 8px; border-radius: 6px; }
         ul.caveats { margin: 4px 0 0; padding-left: 18px; font-size: 12px; color: var(--secondary-text-color); }
       </style>
+      <div class="app-toolbar">
+        <button class="menu-btn" id="menu-btn" title="${t.menuToggle}" aria-label="${t.menuToggle}">
+          <svg viewBox="0 0 24 24"><path d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" /></svg>
+        </button>
+      </div>
       <div class="top-row">
         <div>
           <h1>${t.title}</h1>
@@ -567,6 +766,8 @@ class BroadlinkCodesPanel extends HTMLElement {
       <div id="content"></div>
       <div id="toast" class="toast"></div>
     `;
+
+    root.getElementById("menu-btn").addEventListener("click", () => this._toggleMenu());
 
     root.getElementById("lang-select").addEventListener("change", (e) => {
       this._setLang(e.target.value);
@@ -676,10 +877,12 @@ class BroadlinkCodesPanel extends HTMLElement {
             ? `<span class="toggle-badge" title="${codeList.length} variants">${t.toggle} &times;${codeList.length}</span>`
             : "";
           row.innerHTML = `
-            <td>${this._escapeHtml(cmdName)}${toggleBadge}</td>
+            <td><button class="cmd-name-btn" type="button">${this._escapeHtml(cmdName)}</button>${toggleBadge}</td>
             <td><code class="preview">${this._escapeHtml(preview)}</code></td>
             <td class="row-actions"></td>
           `;
+          row.querySelector(".cmd-name-btn").onclick = () =>
+            this._showCommandDetail(remote.entity_id, device, cmdName, cmdInfo);
           const cell = row.querySelector(".row-actions");
 
           const testBtn = document.createElement("button");
@@ -692,6 +895,12 @@ class BroadlinkCodesPanel extends HTMLElement {
           copyBtn.textContent = t.copy;
           copyBtn.onclick = () => this._copyCode(code);
           cell.appendChild(copyBtn);
+
+          const copyToDevBtn = document.createElement("button");
+          copyToDevBtn.className = "ghost";
+          copyToDevBtn.textContent = t.copyToDevice;
+          copyToDevBtn.onclick = () => this._copyToDeviceDialog(remote.entity_id, device, cmdName);
+          cell.appendChild(copyToDevBtn);
 
           const convBtn = document.createElement("button");
           convBtn.className = "ghost";

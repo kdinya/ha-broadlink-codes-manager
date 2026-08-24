@@ -25,6 +25,7 @@ from .const import (
     PANEL_JS_URL,
     PANEL_URL_PATH,
     SERVICE_CONVERT_CODE,
+    SERVICE_COPY_COMMAND,
     SERVICE_LEARN_COMMAND,
     SERVICE_LIST_CODES,
     SERVICE_RENAME_COMMAND,
@@ -65,11 +66,24 @@ LEARN_SCHEMA = vol.Schema(
     }
 )
 
+COPY_SCHEMA = vol.Schema(
+    {
+        vol.Required("entity_id"): str,
+        vol.Required("device"): str,
+        vol.Required("command"): str,
+        vol.Optional("target_entity_id"): str,
+        vol.Required("target_device"): str,
+        vol.Optional("target_command"): str,
+        vol.Optional("overwrite", default=False): bool,
+    }
+)
+
 ALL_SERVICES = (
     SERVICE_LIST_CODES,
     SERVICE_RENAME_COMMAND,
     SERVICE_CONVERT_CODE,
     SERVICE_LEARN_COMMAND,
+    SERVICE_COPY_COMMAND,
 )
 
 
@@ -202,6 +216,74 @@ def _register_services(hass: HomeAssistant) -> None:
         except Exception as err:  # noqa: BLE001 - surface learn failures/timeouts to the panel
             return {"status": "error", "error": str(err)}
 
+    async def handle_copy_command(call: ServiceCall) -> None:
+        """Copy one learned command onto another device - optionally on a
+        different Broadlink remote entity entirely (codes aren't tied to a
+        specific MAC/hardware, so this is a plain data copy)."""
+        entity = get_remote_by_entity_id(hass, call.data["entity_id"])
+        if entity is None:
+            raise ValueError(f"Broadlink remote {call.data['entity_id']} not found")
+        await async_ensure_storage_loaded(entity)
+
+        target_entity_id = call.data.get("target_entity_id") or call.data["entity_id"]
+        target_entity = get_remote_by_entity_id(hass, target_entity_id)
+        if target_entity is None:
+            raise ValueError(f"Broadlink remote {target_entity_id} not found")
+        if target_entity is not entity:
+            await async_ensure_storage_loaded(target_entity)
+
+        device = call.data["device"]
+        command = call.data["command"]
+        target_device = call.data["target_device"]
+        target_command = call.data.get("target_command") or command
+        overwrite = call.data.get("overwrite", False)
+
+        async def _do_copy() -> None:
+            codes = entity._codes  # noqa: SLF001 - see entity_access.py
+            if device not in codes or command not in codes[device]:
+                raise ValueError(f"Command '{command}' not found on device '{device}'")
+            value = codes[device][command]
+
+            target_codes = target_entity._codes  # noqa: SLF001
+            target_codes.setdefault(target_device, {})
+            if not overwrite and target_command in target_codes[target_device]:
+                raise ValueError(
+                    f"'{target_command}' already exists on device '{target_device}' "
+                    "(pass overwrite: true to replace it)"
+                )
+            # Copy by value (not reference) so editing one copy never mutates
+            # the other - matters for toggle commands, whose value is a list.
+            target_codes[target_device][target_command] = (
+                list(value) if isinstance(value, list) else value
+            )
+            await target_entity._code_storage.async_save(target_codes)  # noqa: SLF001
+
+        same_entity = target_entity is entity
+        lock = getattr(entity, "_lock", None)
+        target_lock = getattr(target_entity, "_lock", None)
+
+        if same_entity:
+            if lock is not None:
+                async with lock:
+                    await _do_copy()
+            else:
+                await _do_copy()
+        elif lock is not None and target_lock is not None:
+            # Two different entities -> two different locks. Acquire both,
+            # source first, so this never races either entity's own
+            # concurrent learn/rename/delete on the same device.
+            async with lock:
+                async with target_lock:
+                    await _do_copy()
+        elif lock is not None:
+            async with lock:
+                await _do_copy()
+        elif target_lock is not None:
+            async with target_lock:
+                await _do_copy()
+        else:
+            await _do_copy()
+
     hass.services.async_register(
         DOMAIN, SERVICE_LIST_CODES, handle_list_codes, supports_response=SupportsResponse.ONLY
     )
@@ -221,6 +303,9 @@ def _register_services(hass: HomeAssistant) -> None:
         handle_learn_command,
         schema=LEARN_SCHEMA,
         supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_COPY_COMMAND, handle_copy_command, schema=COPY_SCHEMA
     )
 
 
