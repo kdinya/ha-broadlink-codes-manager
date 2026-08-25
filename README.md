@@ -155,15 +155,25 @@ tests/
   doesn't appear.
 - **Brand icon.** As of Home Assistant 2026.3, custom integrations ship
   their own brand icon directly instead of submitting to the separate
-  `home-assistant/brands` repository (which stopped accepting new
-  custom-integration icons for exactly this reason). This repo includes
-  one at `custom_components/broadlink_codes_manager/brand/icon.png`.
-  Note: at the time of writing, HACS's own download-list UI has a
-  [known bug](https://github.com/hacs/integration/issues/5223) where it
-  still looks for icons at the old CDN location and shows a placeholder
-  for integrations using the new inline mechanism - that's a HACS-side
-  issue, not something fixable from this repo; the icon still displays
-  correctly everywhere else in HA once installed.
+  `home-assistant/brands` repository (which now auto-closes PRs adding
+  new custom-integration folders for exactly this reason). This repo
+  includes one at `custom_components/broadlink_codes_manager/brand/icon.png`,
+  and Home Assistant itself displays it correctly everywhere (Settings →
+  Devices & services, the config-flow dialog, etc.) via its own
+  `/api/brands/integration/...` proxy.
+  **The one place it doesn't show up is the HACS store/download list**,
+  which still builds its icon URLs against the old
+  `brands.home-assistant.io` CDN instead of that proxy - a confirmed bug
+  in HACS itself
+  ([hacs/integration#5171](https://github.com/hacs/integration/issues/5171),
+  [#5223](https://github.com/hacs/integration/issues/5223)), not
+  anything wrong in this repo. A fix has been open since April 2026
+  ([hacs/frontend#937](https://github.com/hacs/frontend/pull/937)) but
+  is still unmerged as of this writing. Re-submitting to
+  `home-assistant/brands` is not a working workaround here - that repo
+  stopped accepting *new* custom-integration entries in March 2026,
+  and this project's own attempt (see v1.3.3 in the changelog below)
+  was auto-closed for that reason.
 
 ## Changelog
 
