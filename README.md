@@ -1,10 +1,14 @@
 # Broadlink Codes Manager
 
+[![Validate](https://github.com/kdinya/ha-broadlink-codes-manager/actions/workflows/validate.yml/badge.svg)](https://github.com/kdinya/ha-broadlink-codes-manager/actions/workflows/validate.yml)
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A sidebar panel for Home Assistant to browse, test, copy, rename, delete
 and learn Broadlink IR/RF codes — without editing
 `.storage/broadlink_remote_<mac>_codes` by hand.
 
-> **Status: v1.3.2.** Built from a design spec and a review of the
+> **Status: v1.3.3.** Built from a design spec and a review of the
 > Broadlink integration's source in `home-assistant/core`. The
 > integration's service logic has an automated test suite (see
 > [Tests](#tests) below), but the integration itself is still **not yet
@@ -122,6 +126,23 @@ tests/
 
 ## Changelog
 
+### v1.3.3
+
+- **Fixed:** the config flow's duplicate-instance abort didn't pass
+  the `single_instance_allowed` error key, so it fell back to HA's
+  default `already_configured` reason - which has no matching entry
+  in this integration's `strings.json`/`translations`, so it would
+  have shown an untranslated raw key instead of the intended message.
+  Now passes the key explicitly so it matches.
+- **Added:** CI (GitHub Actions) running `hassfest`, the official HACS
+  validation action, and `pytest` on every push/PR and weekly.
+- **Fixed:** the GitHub repository itself was missing a description
+  and topics, which HACS needs to validate and list a custom
+  repository properly.
+- Confirmed `manifest.json` has every key HACS/hassfest require and no
+  unrecognized ones, `hacs.json` is correctly configured for a
+  `content_in_root: false` integration, and `LICENSE` (MIT) is present.
+
 ### v1.3.2
 
 - **Redesigned:** the command chip grid was replaced with an icon
@@ -198,8 +219,9 @@ tests/
 
 Issues and PRs welcome, especially real-world testing reports (HA
 version + what broke) since this was built and reviewed against source
-but not yet run live. `pytest` (see [Tests](#tests)) should stay green
-for any PR touching the services.
+but not yet run live. Every push and PR runs `pytest`, `hassfest`, and
+the official [HACS validation action](https://github.com/hacs/action)
+(see the badge above) - all three should stay green.
 
 ## License
 

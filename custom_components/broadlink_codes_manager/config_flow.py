@@ -17,7 +17,7 @@ class BroadlinkCodesManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input: dict | None = None):
         await self.async_set_unique_id(DOMAIN)
-        self._abort_if_unique_id_configured()
+        self._abort_if_unique_id_configured(error="single_instance_allowed")
 
         if user_input is not None:
             return self.async_create_entry(title="Broadlink Codes Manager", data={})
