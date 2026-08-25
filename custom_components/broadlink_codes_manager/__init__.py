@@ -18,9 +18,13 @@ import voluptuous as vol
 from homeassistant.components import panel_custom
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.helpers.storage import Store
 
 from .const import (
     DATA_ENTRIES,
+    DEVICE_TYPE_KEYS,
+    DEVICE_TYPES_STORAGE_KEY,
+    DEVICE_TYPES_STORAGE_VERSION,
     DOMAIN,
     PANEL_JS_URL,
     PANEL_URL_PATH,
@@ -28,6 +32,9 @@ from .const import (
     SERVICE_LEARN_COMMAND,
     SERVICE_LIST_CODES,
     SERVICE_RENAME_COMMAND,
+    SERVICE_CREATE_DEVICE,
+    SERVICE_RENAME_DEVICE,
+    SERVICE_SET_DEVICE_TYPE,
 )
 from .entity_access import (
     async_ensure_storage_loaded,
@@ -69,12 +76,45 @@ COPY_SCHEMA = vol.Schema(
     }
 )
 
+CREATE_DEVICE_SCHEMA = vol.Schema(
+    {
+        vol.Required("entity_id"): str,
+        vol.Required("device"): str,
+        vol.Optional("device_type", default=""): vol.In(DEVICE_TYPE_KEYS),
+    }
+)
+
+RENAME_DEVICE_SCHEMA = vol.Schema(
+    {
+        vol.Required("entity_id"): str,
+        vol.Required("old_device"): str,
+        vol.Required("new_device"): str,
+    }
+)
+
+SET_DEVICE_TYPE_SCHEMA = vol.Schema(
+    {
+        vol.Required("entity_id"): str,
+        vol.Required("device"): str,
+        # "" clears back to auto-detect (guessed client-side from the name).
+        vol.Required("device_type"): vol.In(DEVICE_TYPE_KEYS),
+    }
+)
+
 ALL_SERVICES = (
     SERVICE_LIST_CODES,
     SERVICE_RENAME_COMMAND,
     SERVICE_LEARN_COMMAND,
     SERVICE_COPY_COMMAND,
+    SERVICE_CREATE_DEVICE,
+    SERVICE_RENAME_DEVICE,
+    SERVICE_SET_DEVICE_TYPE,
+    SERVICE_CREATE_DEVICE,
 )
+
+
+def _device_types_store(hass: HomeAssistant) -> Store:
+    return Store(hass, DEVICE_TYPES_STORAGE_VERSION, DEVICE_TYPES_STORAGE_KEY)
 
 
 def _codes_payload(entity) -> dict:
@@ -142,6 +182,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 def _register_services(hass: HomeAssistant) -> None:
     async def handle_list_codes(call: ServiceCall) -> dict:
+        device_types = await _device_types_store(hass).async_load() or {}
         remotes = []
         for entity_id, entity in get_broadlink_remotes(hass):
             await async_ensure_storage_loaded(entity)
@@ -157,6 +198,7 @@ def _register_services(hass: HomeAssistant) -> None:
                     "entity_id": entity_id,
                     "friendly_name": friendly_name,
                     "devices": _codes_payload(entity),
+                    "device_types": device_types.get(entity_id, {}),
                 }
             )
         return {"remotes": remotes}
@@ -188,25 +230,138 @@ def _register_services(hass: HomeAssistant) -> None:
         else:
             await _do_rename()
 
+    async def handle_create_device(call: ServiceCall) -> None:
+        """Create an empty device entry - deliberately separate from
+        learning a command, so the panel can offer a clear 'this device
+        already exists, learn a command for it instead' message rather
+        than silently reusing/renaming an existing one."""
+        entity_id = call.data["entity_id"]
+        entity = get_remote_by_entity_id(hass, entity_id)
+        if entity is None:
+            raise ValueError(f"Broadlink remote {entity_id} not found")
+        await async_ensure_storage_loaded(entity)
+
+        device = call.data["device"]
+        device_type = call.data.get("device_type", "")
+
+        async def _do_create() -> None:
+            codes = entity._codes  # noqa: SLF001 - see entity_access.py
+            if device in codes:
+                raise ValueError(f"Device '{device}' already exists")
+            codes[device] = {}
+            await entity._code_storage.async_save(codes)  # noqa: SLF001
+
+        lock = getattr(entity, "_lock", None)
+        if lock is not None:
+            async with lock:
+                await _do_create()
+        else:
+            await _do_create()
+
+        if device_type:
+            store = _device_types_store(hass)
+            data = await store.async_load() or {}
+            data.setdefault(entity_id, {})[device] = device_type
+            await store.async_save(data)
+
+    async def handle_rename_device(call: ServiceCall) -> None:
+        """Rename a device - moves all its commands under the new name in
+        Broadlink's own storage, and carries over any device-type choice
+        made for it in ours."""
+        entity_id = call.data["entity_id"]
+        entity = get_remote_by_entity_id(hass, entity_id)
+        if entity is None:
+            raise ValueError(f"Broadlink remote {entity_id} not found")
+        await async_ensure_storage_loaded(entity)
+
+        old_device = call.data["old_device"]
+        new_device = call.data["new_device"]
+
+        async def _do_rename_device() -> None:
+            codes = entity._codes  # noqa: SLF001 - see entity_access.py
+            if old_device not in codes:
+                raise ValueError(f"Device '{old_device}' not found")
+            if new_device in codes:
+                raise ValueError(f"Device '{new_device}' already exists")
+            codes[new_device] = codes.pop(old_device)
+            await entity._code_storage.async_save(codes)  # noqa: SLF001
+
+        lock = getattr(entity, "_lock", None)
+        if lock is not None:
+            async with lock:
+                await _do_rename_device()
+        else:
+            await _do_rename_device()
+
+        store = _device_types_store(hass)
+        data = await store.async_load() or {}
+        remote_types = data.get(entity_id, {})
+        if old_device in remote_types:
+            remote_types[new_device] = remote_types.pop(old_device)
+            await store.async_save(data)
+
+    async def handle_set_device_type(call: ServiceCall) -> None:
+        """Store (or clear, if device_type is "") the panel's icon/type
+        choice for a device. Purely cosmetic - never touches Broadlink's
+        own code storage - so no lock/entity lookup is needed beyond
+        confirming the remote itself exists."""
+        entity_id = call.data["entity_id"]
+        if get_remote_by_entity_id(hass, entity_id) is None:
+            raise ValueError(f"Broadlink remote {entity_id} not found")
+
+        device = call.data["device"]
+        device_type = call.data["device_type"]
+
+        store = _device_types_store(hass)
+        data = await store.async_load() or {}
+        remote_types = data.setdefault(entity_id, {})
+        if device_type:
+            remote_types[device] = device_type
+        else:
+            remote_types.pop(device, None)
+        await store.async_save(data)
+
     async def handle_learn_command(call: ServiceCall) -> dict:
         """Thin wrapper around remote.learn_command that reports the
         outcome back to the panel (the underlying service is
-        fire-and-forget and returns nothing itself)."""
+        fire-and-forget and returns nothing itself), including the code
+        that was just learned so the panel can show it immediately
+        without a second round trip."""
+        entity_id = call.data["entity_id"]
+        device = call.data["device"]
+        command = call.data["command"]
         try:
             await hass.services.async_call(
                 "remote",
                 "learn_command",
                 {
-                    "entity_id": call.data["entity_id"],
-                    "device": call.data["device"],
-                    "command": call.data["command"],
+                    "entity_id": entity_id,
+                    "device": device,
+                    "command": command,
                     "alternative": call.data.get("alternative", False),
                     "timeout": call.data.get("timeout", 20),
                 },
                 blocking=True,
                 context=call.context,
             )
-            return {"status": "ok", "device": call.data["device"], "command": call.data["command"]}
+            code = None
+            toggle = False
+            entity = get_remote_by_entity_id(hass, entity_id)
+            if entity is not None:
+                codes = getattr(entity, "_codes", {}) or {}  # noqa: SLF001
+                value = codes.get(device, {}).get(command)
+                if isinstance(value, list):
+                    toggle = True
+                    code = value[0] if value else None
+                elif value is not None:
+                    code = value
+            return {
+                "status": "ok",
+                "device": device,
+                "command": command,
+                "code": code,
+                "toggle": toggle,
+            }
         except Exception as err:  # noqa: BLE001 - surface learn failures/timeouts to the panel
             return {"status": "error", "error": str(err)}
 
@@ -293,6 +448,15 @@ def _register_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(
         DOMAIN, SERVICE_COPY_COMMAND, handle_copy_command, schema=COPY_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_RENAME_DEVICE, handle_rename_device, schema=RENAME_DEVICE_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_SET_DEVICE_TYPE, handle_set_device_type, schema=SET_DEVICE_TYPE_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_CREATE_DEVICE, handle_create_device, schema=CREATE_DEVICE_SCHEMA
     )
 
 

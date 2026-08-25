@@ -89,7 +89,9 @@ async def test_learn_command_reports_ok_status(hass_with_remotes, make_remote):
 
     async def fake_remote_learn(call):
         calls.append(call.data)
-        return {}
+        # Mimic what the real broadlink integration does: writes the
+        # learned code straight into the entity's live _codes dict.
+        remote._codes.setdefault(call.data["device"], {})[call.data["command"]] = "AABBCC"
 
     hass.services.async_register("remote", "learn_command", fake_remote_learn)
 
@@ -99,8 +101,34 @@ async def test_learn_command_reports_ok_status(hass_with_remotes, make_remote):
         {"entity_id": "remote.a", "device": "TV", "command": "power"},
     )
 
-    assert result == {"status": "ok", "device": "TV", "command": "power"}
+    assert result == {
+        "status": "ok",
+        "device": "TV",
+        "command": "power",
+        "code": "AABBCC",
+        "toggle": False,
+    }
     assert calls[0]["entity_id"] == "remote.a"
+
+
+async def test_learn_command_reports_toggle_list_code(hass_with_remotes, make_remote):
+    remote = make_remote("remote.a", "A", {})
+    hass = hass_with_remotes(remote)
+    await _setup(hass)
+
+    async def fake_remote_learn(call):
+        remote._codes.setdefault(call.data["device"], {})[call.data["command"]] = ["AA", "BB"]
+
+    hass.services.async_register("remote", "learn_command", fake_remote_learn)
+
+    result = await hass.services.async_call(
+        DOMAIN,
+        "learn_command",
+        {"entity_id": "remote.a", "device": "TV", "command": "mute"},
+    )
+
+    assert result["toggle"] is True
+    assert result["code"] == "AA"  # first code in the toggle list, for preview
 
 
 async def test_learn_command_reports_error_status_on_failure(hass_with_remotes, make_remote):
@@ -249,3 +277,151 @@ async def test_copy_command_rejects_unknown_target_remote(hass_with_remotes, mak
                 "target_device": "TV",
             },
         )
+
+
+# ---- create_device ----
+
+
+async def test_create_device_adds_empty_device_entry(hass_with_remotes, make_remote):
+    remote = make_remote("remote.a", "A", {})
+    hass = hass_with_remotes(remote)
+    await _setup(hass)
+
+    await hass.services.async_call(
+        DOMAIN, "create_device", {"entity_id": "remote.a", "device": "TV"}
+    )
+
+    assert remote._codes == {"TV": {}}
+    assert remote._code_storage.save_count == 1
+
+
+async def test_create_device_rejects_existing_device(hass_with_remotes, make_remote):
+    remote = make_remote("remote.a", "A", {"TV": {"power": "AABB"}})
+    hass = hass_with_remotes(remote)
+    await _setup(hass)
+
+    with pytest.raises(ValueError, match="already exists"):
+        await hass.services.async_call(
+            DOMAIN, "create_device", {"entity_id": "remote.a", "device": "TV"}
+        )
+    # existing device untouched
+    assert remote._codes == {"TV": {"power": "AABB"}}
+
+
+async def test_create_device_stores_device_type(hass_with_remotes, make_remote):
+    remote = make_remote("remote.a", "A", {})
+    hass = hass_with_remotes(remote)
+    await _setup(hass)
+
+    await hass.services.async_call(
+        DOMAIN,
+        "create_device",
+        {"entity_id": "remote.a", "device": "TV", "device_type": "tv"},
+    )
+
+    result = await hass.services.async_call(DOMAIN, "list_codes", {})
+    assert result["remotes"][0]["device_types"] == {"TV": "tv"}
+
+
+# ---- rename_device ----
+
+
+async def test_rename_device_moves_all_commands(hass_with_remotes, make_remote):
+    remote = make_remote(
+        "remote.a", "A", {"TV": {"power": "AABB", "mute": "CCDD"}}
+    )
+    hass = hass_with_remotes(remote)
+    await _setup(hass)
+
+    await hass.services.async_call(
+        DOMAIN,
+        "rename_device",
+        {"entity_id": "remote.a", "old_device": "TV", "new_device": "Living Room TV"},
+    )
+
+    assert "TV" not in remote._codes
+    assert remote._codes["Living Room TV"] == {"power": "AABB", "mute": "CCDD"}
+
+
+async def test_rename_device_rejects_unknown_source(hass_with_remotes, make_remote):
+    remote = make_remote("remote.a", "A", {})
+    hass = hass_with_remotes(remote)
+    await _setup(hass)
+
+    with pytest.raises(ValueError, match="not found"):
+        await hass.services.async_call(
+            DOMAIN,
+            "rename_device",
+            {"entity_id": "remote.a", "old_device": "TV", "new_device": "New TV"},
+        )
+
+
+async def test_rename_device_rejects_collision(hass_with_remotes, make_remote):
+    remote = make_remote("remote.a", "A", {"TV": {}, "AC": {}})
+    hass = hass_with_remotes(remote)
+    await _setup(hass)
+
+    with pytest.raises(ValueError, match="already exists"):
+        await hass.services.async_call(
+            DOMAIN,
+            "rename_device",
+            {"entity_id": "remote.a", "old_device": "TV", "new_device": "AC"},
+        )
+
+
+async def test_rename_device_carries_over_device_type(hass_with_remotes, make_remote):
+    remote = make_remote("remote.a", "A", {"TV": {"power": "AABB"}})
+    hass = hass_with_remotes(remote)
+    await _setup(hass)
+
+    await hass.services.async_call(
+        DOMAIN,
+        "set_device_type",
+        {"entity_id": "remote.a", "device": "TV", "device_type": "tv"},
+    )
+    await hass.services.async_call(
+        DOMAIN,
+        "rename_device",
+        {"entity_id": "remote.a", "old_device": "TV", "new_device": "Living Room TV"},
+    )
+
+    result = await hass.services.async_call(DOMAIN, "list_codes", {})
+    assert result["remotes"][0]["device_types"] == {"Living Room TV": "tv"}
+
+
+# ---- set_device_type ----
+
+
+async def test_set_device_type_persists_and_lists(hass_with_remotes, make_remote):
+    remote = make_remote("remote.a", "A", {"TV": {"power": "AABB"}})
+    hass = hass_with_remotes(remote)
+    await _setup(hass)
+
+    await hass.services.async_call(
+        DOMAIN,
+        "set_device_type",
+        {"entity_id": "remote.a", "device": "TV", "device_type": "tv"},
+    )
+
+    result = await hass.services.async_call(DOMAIN, "list_codes", {})
+    assert result["remotes"][0]["device_types"] == {"TV": "tv"}
+
+
+async def test_set_device_type_empty_clears_override(hass_with_remotes, make_remote):
+    remote = make_remote("remote.a", "A", {"TV": {"power": "AABB"}})
+    hass = hass_with_remotes(remote)
+    await _setup(hass)
+
+    await hass.services.async_call(
+        DOMAIN,
+        "set_device_type",
+        {"entity_id": "remote.a", "device": "TV", "device_type": "tv"},
+    )
+    await hass.services.async_call(
+        DOMAIN,
+        "set_device_type",
+        {"entity_id": "remote.a", "device": "TV", "device_type": ""},
+    )
+
+    result = await hass.services.async_call(DOMAIN, "list_codes", {})
+    assert result["remotes"][0]["device_types"] == {}

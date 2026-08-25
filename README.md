@@ -8,7 +8,7 @@ A sidebar panel for Home Assistant to browse, test, copy, rename, delete
 and learn Broadlink IR/RF codes — without editing
 `.storage/broadlink_remote_<mac>_codes` by hand.
 
-> **Status: v1.3.5.** Built from a design spec and a review of the
+> **Status: v1.4.0.** Built from a design spec and a review of the
 > Broadlink integration's source in `home-assistant/core`. The
 > integration's service logic has an automated test suite (see
 > [Tests](#tests) below), but the integration itself is still **not yet
@@ -29,19 +29,33 @@ and learn Broadlink IR/RF codes — without editing
   its own menu button so the standard Home Assistant sidebar stays
   reachable (narrow/mobile layouts, or an auto-hidden sidebar, no longer
   strand you on this panel with no way back).
-- Per remote → per device → command table: **Test**, **Copy**,
-  **Copy to device**, **Rename**, **Delete**. Clicking a command's name
-  opens a detail view with the full code and all of the above actions
-  in one place.
+- Devices shown as an icon grid (device type auto-guessed from its name,
+  or set explicitly — see **Device types** below); tapping one opens a
+  plain list of its commands. Tapping a command opens a detail view with
+  **Test**, **Copy**, **Copy to device**, **Rename**, **Delete**.
+- **Create device** is its own action, separate from learning a
+  command — it just adds an empty, named (and optionally typed) device.
+  Trying to create one with a name that's already taken doesn't silently
+  do something surprising: it tells you and offers a shortcut into
+  learning a command for the existing device instead.
+- **Device types** — assign a device one of ~30 built-in types (TV, AC,
+  light, lock, vacuum, kettle, and more), each with its own icon; leave
+  it on auto-detect and the panel guesses one from the name instead.
+  Change it any time from **Edit device**, which also lets you rename
+  the device (moves all its commands, nothing needs re-learning).
+- **Learn command** keeps its dialog open through the whole thing
+  instead of closing right away: fill in a name, it waits for the IR
+  signal, then shows you the code it just received with **Test**,
+  **Save**, and **Cancel** (Cancel discards what was just learned rather
+  than leaving an unwanted command behind).
 - **Copy to device** — copy a learned command onto another device, on
   the same remote or a completely different Broadlink remote entity.
   Codes aren't tied to a specific MAC address, so this is a plain data
   copy (no re-learning, no button press needed), with overwrite
   protection unless you explicitly opt in.
-- **Delete device** — removes every command on a device in one call.
-- **Learn command** — create a new device and/or learn a new command
-  from the panel (wraps `remote.learn_command`, reports success/failure
-  back instead of leaving you guessing).
+- **Delete device** — a clearly visible button on the device's own page
+  (not a small icon buried in the grid), removing every command on it
+  in one call.
 - Filter/search across devices and commands.
 - Toggle commands (learned with `alternative=True`) are labelled, not
   silently treated as plain commands.
@@ -70,10 +84,13 @@ Copy `custom_components/broadlink_codes_manager/` into your HA
 
 | Service | Purpose |
 |---|---|
-| `broadlink_codes_manager.list_codes` | Returns all remotes + codes (response data). Used by the panel. |
+| `broadlink_codes_manager.list_codes` | Returns all remotes + codes + device types (response data). Used by the panel. |
 | `broadlink_codes_manager.rename_command` | Rename a command in place, no re-learning. |
 | `broadlink_codes_manager.copy_command` | Copy a command onto another device, optionally on a different remote entity. |
-| `broadlink_codes_manager.learn_command` | Wraps `remote.learn_command` with a response so you know if it actually worked. |
+| `broadlink_codes_manager.learn_command` | Wraps `remote.learn_command`, returning the learned code itself along with success/failure. |
+| `broadlink_codes_manager.create_device` | Creates an empty device, optionally with a type/icon. Fails if the name is already taken. |
+| `broadlink_codes_manager.rename_device` | Renames a device, moving every command under it. Carries over its device-type choice. |
+| `broadlink_codes_manager.set_device_type` | Sets (or clears, restoring auto-detect) which icon a device shows. Purely cosmetic. |
 
 Deleting and sending codes reuse Home Assistant's own
 `remote.delete_command` / `remote.send_command` — no point reinventing
@@ -124,6 +141,12 @@ tests/
   replays exactly the base64 payload Broadlink itself produced.
 - **IR only.** RF (315/433 MHz) codes are a different physical layer and
   are intentionally out of scope.
+- **Device types are stored separately from Broadlink's own codes.**
+  There's no field for this in Broadlink's own storage, so the panel
+  keeps a small `Store` of its own (device name → chosen type), only
+  ever read/written by this integration. Deleting a device's last
+  command doesn't currently clean up its leftover type entry - harmless
+  (a few bytes), but worth knowing if you inspect `.storage` directly.
 - The panel's static file is served via `hass.http.register_static_path`
   (with a fallback to the newer `async_register_static_paths` /
   `StaticPathConfig` API introduced in HA 2024.7) — this code path is
@@ -142,6 +165,35 @@ tests/
   correctly everywhere else in HA once installed.
 
 ## Changelog
+
+### v1.4.0
+
+- **Added: device types.** Assign a device one of ~30 built-in types
+  (TV, AC, light, lock, vacuum, kettle, and more), each with its own
+  icon - or leave it on auto-detect, which guesses one from the name
+  like before. New `set_device_type` service; stored separately from
+  Broadlink's own codes (see Known limitations).
+- **Added: Create device**, split out from learning a command - it
+  just adds an empty, named (and optionally typed) device. Creating one
+  with a name that already exists no longer does anything surprising:
+  it explains the conflict and offers a shortcut into learning a
+  command for the existing device instead. New `create_device` service.
+- **Added: Edit device** - rename a device (moves every command under
+  it, nothing needs re-learning) and/or change its type, from one
+  dialog on the device's own page. New `rename_device` service, which
+  also carries over any device-type choice.
+- **Changed: Learn command** no longer closes the dialog the moment you
+  click Learn, which made it unclear whether anything had happened. It
+  now stays open through the whole thing: fill in a name, it waits for
+  the IR signal, then shows the code it just received with **Test**,
+  **Save**, and **Cancel** - Cancel discards what was just learned
+  (`learn_command` now returns the learned code itself, so the panel
+  doesn't need a second round trip to show it).
+- **Changed: Delete device** moved from a small icon on the device grid
+  (unreachable on touch devices - hover-only) to a clearly visible
+  button on the device's own page.
+- **Fixed:** the row-navigation chevron (`›`) in a device's command list
+  was barely visible (50% opacity, no color) - now bold and colored.
 
 ### v1.3.5
 

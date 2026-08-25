@@ -114,3 +114,209 @@ learn_command:
           min: 5
           max: 60
           unit_of_measurement: seconds
+
+create_device:
+  name: Create device
+  description: >-
+    Creates a new, empty device entry. Fails if a device with that name
+    already exists on the remote - learn a command for the existing
+    device instead of creating a duplicate.
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: remote
+    device:
+      required: true
+      example: "Living Room TV"
+      selector:
+        text:
+    device_type:
+      required: false
+      default: ""
+      selector:
+        select:
+          options:
+            - label: "Auto-detect from name"
+              value: ""
+            - label: "TV"
+              value: "tv"
+            - label: "Set-top box / Receiver box"
+              value: "set_top_box"
+            - label: "Projector"
+              value: "projector"
+            - label: "Air Conditioner"
+              value: "air_conditioner"
+            - label: "Fan"
+              value: "fan"
+            - label: "Ceiling Fan"
+              value: "ceiling_fan"
+            - label: "Heater"
+              value: "heater"
+            - label: "Fireplace"
+              value: "fireplace"
+            - label: "Humidifier"
+              value: "humidifier"
+            - label: "Dehumidifier"
+              value: "dehumidifier"
+            - label: "Air Purifier"
+              value: "air_purifier"
+            - label: "Light"
+              value: "light"
+            - label: "Speaker"
+              value: "speaker"
+            - label: "Soundbar"
+              value: "soundbar"
+            - label: "AV Receiver"
+              value: "receiver"
+            - label: "Curtain / Blinds"
+              value: "curtain"
+            - label: "Garage Door"
+              value: "garage_door"
+            - label: "Door Lock"
+              value: "door_lock"
+            - label: "Camera"
+              value: "camera"
+            - label: "Doorbell"
+              value: "doorbell"
+            - label: "Robot Vacuum"
+              value: "robot_vacuum"
+            - label: "Washing Machine"
+              value: "washing_machine"
+            - label: "Dryer"
+              value: "dryer"
+            - label: "Dishwasher"
+              value: "dishwasher"
+            - label: "Oven"
+              value: "oven"
+            - label: "Microwave"
+              value: "microwave"
+            - label: "Refrigerator"
+              value: "refrigerator"
+            - label: "Kettle"
+              value: "kettle"
+            - label: "Coffee Maker"
+              value: "coffee_maker"
+            - label: "Water Heater"
+              value: "water_heater"
+            - label: "Pool Pump"
+              value: "pool_pump"
+            - label: "Lawn Mower"
+              value: "lawn_mower"
+            - label: "Other / Generic remote"
+              value: "generic"
+
+rename_device:
+  name: Rename device
+  description: >-
+    Renames a device (moves all of its learned commands under the new
+    name). Carries over any device-type/icon choice made for it in the
+    panel.
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: remote
+    old_device:
+      required: true
+      example: "Living Room TV"
+      selector:
+        text:
+    new_device:
+      required: true
+      example: "Living Room Television"
+      selector:
+        text:
+
+set_device_type:
+  name: Set device type
+  description: >-
+    Sets (or clears, with an empty value) which icon a device shows in
+    the panel. Purely cosmetic - stored by the panel itself, separate
+    from Broadlink's own code storage.
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: remote
+    device:
+      required: true
+      example: "Living Room TV"
+      selector:
+        text:
+    device_type:
+      required: true
+      selector:
+        select:
+          options:
+            - label: "Auto-detect from name"
+              value: ""
+            - label: "TV"
+              value: "tv"
+            - label: "Set-top box / Receiver box"
+              value: "set_top_box"
+            - label: "Projector"
+              value: "projector"
+            - label: "Air Conditioner"
+              value: "air_conditioner"
+            - label: "Fan"
+              value: "fan"
+            - label: "Ceiling Fan"
+              value: "ceiling_fan"
+            - label: "Heater"
+              value: "heater"
+            - label: "Fireplace"
+              value: "fireplace"
+            - label: "Humidifier"
+              value: "humidifier"
+            - label: "Dehumidifier"
+              value: "dehumidifier"
+            - label: "Air Purifier"
+              value: "air_purifier"
+            - label: "Light"
+              value: "light"
+            - label: "Speaker"
+              value: "speaker"
+            - label: "Soundbar"
+              value: "soundbar"
+            - label: "AV Receiver"
+              value: "receiver"
+            - label: "Curtain / Blinds"
+              value: "curtain"
+            - label: "Garage Door"
+              value: "garage_door"
+            - label: "Door Lock"
+              value: "door_lock"
+            - label: "Camera"
+              value: "camera"
+            - label: "Doorbell"
+              value: "doorbell"
+            - label: "Robot Vacuum"
+              value: "robot_vacuum"
+            - label: "Washing Machine"
+              value: "washing_machine"
+            - label: "Dryer"
+              value: "dryer"
+            - label: "Dishwasher"
+              value: "dishwasher"
+            - label: "Oven"
+              value: "oven"
+            - label: "Microwave"
+              value: "microwave"
+            - label: "Refrigerator"
+              value: "refrigerator"
+            - label: "Kettle"
+              value: "kettle"
+            - label: "Coffee Maker"
+              value: "coffee_maker"
+            - label: "Water Heater"
+              value: "water_heater"
+            - label: "Pool Pump"
+              value: "pool_pump"
+            - label: "Lawn Mower"
+              value: "lawn_mower"
+            - label: "Other / Generic remote"
+              value: "generic"

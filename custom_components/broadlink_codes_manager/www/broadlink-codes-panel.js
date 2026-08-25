@@ -15,7 +15,9 @@ const STRINGS = {
     noRemotes: "No Broadlink remote entities found. Make sure a Broadlink device is set up in Home Assistant.",
     noMatch: "No devices match the filter.",
     learn: "+ Learn command",
+    createDevice: "+ Create device",
     deleteDevice: "Delete device",
+    editDevice: "Edit",
     back: "Back",
     test: "Test",
     copy: "Copy",
@@ -32,9 +34,22 @@ const STRINGS = {
     renameFailed: (msg) => `Rename failed: ${msg}`,
     copied: "Copied to clipboard",
     copyFailed: "Copy failed - your browser blocked clipboard access",
-    learning: (cmd) => `Learning "${cmd}" - press the remote button now...`,
+    waitingForSignal: "Point your remote at the receiver and press the button now...",
     learnedToast: (cmd, dev) => `Learned "${cmd}" on "${dev}"`,
     learnFailed: (msg) => `Learn failed: ${msg}`,
+    createDeviceTitle: "Create device",
+    createDeviceNameLabel: "Device name",
+    createDeviceTypeLabel: "Device type",
+    createDeviceBtn: "Create",
+    createdDeviceToast: (name) => `Created device "${name}"`,
+    createDeviceFailed: (msg) => `Could not create device: ${msg}`,
+    deviceAlreadyExists: (name) => `Device "${name}" already exists.`,
+    learnForExistingBtn: "Learn command for this device instead",
+    editDeviceTitle: "Edit device",
+    editDeviceNameLabel: "Device name",
+    editDeviceTypeLabel: "Device type",
+    deviceUpdatedToast: (name) => `Device updated ("${name}")`,
+    editDeviceFailed: (msg) => `Could not update device: ${msg}`,
     confirmDeleteCmdTitle: "Delete command?",
     confirmDeleteCmdBody: (cmd, dev) => `Delete command "${cmd}" on "${dev}"? This cannot be undone.`,
     confirmDeleteDeviceTitle: "Delete device?",
@@ -45,9 +60,7 @@ const STRINGS = {
     renameTitle: "Rename command",
     renameLabel: "New name",
     saveBtn: "Save",
-    learnTitle: "Learn new device",
     learnCommandTitle: "Learn command",
-    learnNewDeviceLabel: "New device name",
     learnDeviceFixedLabel: "Device",
     learnCommandLabel: "Command name",
     learnBtn: "Learn",
@@ -79,7 +92,9 @@ const STRINGS = {
     noRemotes: "Пульти Broadlink не знайдено. Переконайтеся, що пристрій Broadlink налаштовано в Home Assistant.",
     noMatch: "Немає пристроїв, що відповідають фільтру.",
     learn: "+ Навчити команду",
+    createDevice: "+ Створити пристрій",
     deleteDevice: "Видалити пристрій",
+    editDevice: "Редагувати",
     back: "Назад",
     test: "Тест",
     copy: "Копіювати",
@@ -96,9 +111,22 @@ const STRINGS = {
     renameFailed: (msg) => `Помилка перейменування: ${msg}`,
     copied: "Скопійовано в буфер обміну",
     copyFailed: "Не вдалося скопіювати - браузер заблокував доступ до буфера обміну",
-    learning: (cmd) => `Навчання "${cmd}" - натисніть кнопку на пульті...`,
+    waitingForSignal: "Направте пульт на приймач і натисніть кнопку зараз...",
     learnedToast: (cmd, dev) => `Команду "${cmd}" вивчено на "${dev}"`,
     learnFailed: (msg) => `Помилка навчання: ${msg}`,
+    createDeviceTitle: "Створити пристрій",
+    createDeviceNameLabel: "Назва пристрою",
+    createDeviceTypeLabel: "Тип пристрою",
+    createDeviceBtn: "Створити",
+    createdDeviceToast: (name) => `Створено пристрій "${name}"`,
+    createDeviceFailed: (msg) => `Не вдалося створити пристрій: ${msg}`,
+    deviceAlreadyExists: (name) => `Пристрій "${name}" вже існує.`,
+    learnForExistingBtn: "Навчити команду для цього пристрою",
+    editDeviceTitle: "Редагувати пристрій",
+    editDeviceNameLabel: "Назва пристрою",
+    editDeviceTypeLabel: "Тип пристрою",
+    deviceUpdatedToast: (name) => `Пристрій оновлено ("${name}")`,
+    editDeviceFailed: (msg) => `Не вдалося оновити пристрій: ${msg}`,
     confirmDeleteCmdTitle: "Видалити команду?",
     confirmDeleteCmdBody: (cmd, dev) => `Видалити команду "${cmd}" на "${dev}"? Це неможливо скасувати.`,
     confirmDeleteDeviceTitle: "Видалити пристрій?",
@@ -109,9 +137,7 @@ const STRINGS = {
     renameTitle: "Перейменувати команду",
     renameLabel: "Нова назва",
     saveBtn: "Зберегти",
-    learnTitle: "Навчити новий пристрій",
     learnCommandTitle: "Навчити команду",
-    learnNewDeviceLabel: "Назва нового пристрою",
     learnDeviceFixedLabel: "Пристрій",
     learnCommandLabel: "Назва команди",
     learnBtn: "Навчити",
@@ -135,6 +161,46 @@ const STRINGS = {
     copyToDeviceFailed: (msg) => `Помилка копіювання: ${msg}`,
   },
 };
+
+// Kept in sync with DEVICE_TYPE_KEYS in const.py - the set of device types
+// a user can explicitly assign, each with an icon and a keyword list used
+// to guess a type from a device's name when no explicit choice was made.
+const DEVICE_TYPES = [
+  { key: "", icon: "🔍", en: "Auto-detect from name", uk: "Автовизначення за назвою", keywords: [] },
+  { key: "tv", icon: "📺", en: "TV", uk: "Телевізор", keywords: ["tv", "телев", "телек"] },
+  { key: "set_top_box", icon: "📡", en: "Set-top box / Receiver box", uk: "Приставка / Тюнер", keywords: ["box", "приставк", "тюнер", "set-top", "settop"] },
+  { key: "projector", icon: "📽️", en: "Projector", uk: "Проектор", keywords: ["projector", "проектор"] },
+  { key: "air_conditioner", icon: "❄️", en: "Air Conditioner", uk: "Кондиціонер", keywords: ["air condition", " ac", "клімат", "кондиц"] },
+  { key: "fan", icon: "🌀", en: "Fan", uk: "Вентилятор", keywords: ["fan", "вентил"] },
+  { key: "ceiling_fan", icon: "🌬️", en: "Ceiling Fan", uk: "Стельовий вентилятор", keywords: ["ceiling fan", "стельов"] },
+  { key: "heater", icon: "🔥", en: "Heater", uk: "Обігрівач", keywords: ["heat", "обігрів", "тепл"] },
+  { key: "fireplace", icon: "🪵", en: "Fireplace", uk: "Камін", keywords: ["fireplace", "камін"] },
+  { key: "humidifier", icon: "💧", en: "Humidifier", uk: "Зволожувач", keywords: ["humidif", "зволож"] },
+  { key: "dehumidifier", icon: "🌫️", en: "Dehumidifier", uk: "Осушувач", keywords: ["dehumid", "осуш"] },
+  { key: "air_purifier", icon: "🍃", en: "Air Purifier", uk: "Очищувач повітря", keywords: ["purifier", "очищ"] },
+  { key: "light", icon: "💡", en: "Light", uk: "Світло", keywords: ["light", "lamp", "світло", "лампа", "люстра"] },
+  { key: "speaker", icon: "🔊", en: "Speaker", uk: "Колонка", keywords: ["speaker", "audio", "sound", "колон", "звук", "музик"] },
+  { key: "soundbar", icon: "🎚️", en: "Soundbar", uk: "Саундбар", keywords: ["soundbar", "саундбар"] },
+  { key: "receiver", icon: "📻", en: "AV Receiver", uk: "AV-ресивер", keywords: ["receiver", "ресивер"] },
+  { key: "curtain", icon: "🪟", en: "Curtain / Blinds", uk: "Штори / Жалюзі", keywords: ["curtain", "blind", "штор", "жалюз"] },
+  { key: "garage_door", icon: "🚪", en: "Garage Door", uk: "Гаражні ворота", keywords: ["garage", "гараж"] },
+  { key: "door_lock", icon: "🔒", en: "Door Lock", uk: "Замок", keywords: ["lock", "замок"] },
+  { key: "camera", icon: "📷", en: "Camera", uk: "Камера", keywords: ["camera", "камер"] },
+  { key: "doorbell", icon: "🔔", en: "Doorbell", uk: "Дзвінок", keywords: ["doorbell", "дзвінок", "дзвоник"] },
+  { key: "robot_vacuum", icon: "🤖", en: "Robot Vacuum", uk: "Робот-пилосос", keywords: ["vacuum", "пилосос"] },
+  { key: "washing_machine", icon: "🫧", en: "Washing Machine", uk: "Пральна машина", keywords: ["wash", "пральн"] },
+  { key: "dryer", icon: "🌪️", en: "Dryer", uk: "Сушарка", keywords: ["dryer", "сушарк", "сушильн"] },
+  { key: "dishwasher", icon: "🍽️", en: "Dishwasher", uk: "Посудомийка", keywords: ["dishwasher", "посудомий"] },
+  { key: "oven", icon: "🍞", en: "Oven", uk: "Духовка", keywords: ["oven", "духовк"] },
+  { key: "microwave", icon: "♨️", en: "Microwave", uk: "Мікрохвильовка", keywords: ["microwave", "мікрохвильов"] },
+  { key: "refrigerator", icon: "🧊", en: "Refrigerator", uk: "Холодильник", keywords: ["fridge", "refriger", "холодильник"] },
+  { key: "kettle", icon: "🫖", en: "Kettle", uk: "Чайник", keywords: ["kettle", "чайник"] },
+  { key: "coffee_maker", icon: "☕", en: "Coffee Maker", uk: "Кавоварка", keywords: ["coffee", "кавов"] },
+  { key: "water_heater", icon: "🚿", en: "Water Heater", uk: "Водонагрівач", keywords: ["water heater", "водонагрів", "бойлер"] },
+  { key: "pool_pump", icon: "🏊", en: "Pool Pump", uk: "Насос басейну", keywords: ["pool", "басейн"] },
+  { key: "lawn_mower", icon: "🌱", en: "Lawn Mower", uk: "Газонокосарка", keywords: ["mower", "газонокосар"] },
+  { key: "generic", icon: "🎛️", en: "Other / Generic remote", uk: "Інше / Загальний пульт", keywords: [] },
+];
 
 class BroadlinkCodesPanel extends HTMLElement {
   constructor() {
@@ -315,48 +381,110 @@ class BroadlinkCodesPanel extends HTMLElement {
     });
   }
 
-  _learnDialog(prefillDevice) {
-    return new Promise((resolve) => {
-      const t = this.t;
-      const deviceFieldHtml = prefillDevice
-        ? `<div class="field-label">${t.learnDeviceFixedLabel}<div class="fixed-value">${this._escapeHtml(prefillDevice)}</div></div>`
-        : `<label class="field-label">${t.learnNewDeviceLabel}
-             <input type="text" id="dlg-device" />
-           </label>`;
-      const dialog = this._openDialog(`
-        <h2>${prefillDevice ? t.learnCommandTitle : t.learnTitle}</h2>
-        ${deviceFieldHtml}
+  // Learning a command is always for an already-known device now (device
+  // *creation* is its own separate flow - see _createDeviceDialog) - so
+  // this keeps a single dialog open across three states (form -> waiting
+  // for the IR signal -> showing the received code with Test/Save/Cancel)
+  // instead of closing and reopening, which used to make it unclear
+  // whether anything had actually happened.
+  _learnCommand(entityId, device) {
+    const t = this.t;
+
+    const renderForm = (dialog, errorMsg) => {
+      dialog.innerHTML = `
+        <h2>${t.learnCommandTitle}</h2>
+        <div class="field-label">${t.learnDeviceFixedLabel}<div class="fixed-value">${this._escapeHtml(device)}</div></div>
         <label class="field-label">${t.learnCommandLabel}
-          <input type="text" id="dlg-command" />
+          <input type="text" id="lc-command" />
         </label>
-        <div class="dialog-error" id="dlg-error"></div>
+        <div class="dialog-error" id="dlg-error">${errorMsg ? this._escapeHtml(errorMsg) : ""}</div>
         <div class="dialog-actions">
           <button class="ghost" id="dlg-cancel">${t.cancelBtn}</button>
           <button id="dlg-confirm">${t.learnBtn}</button>
         </div>
-      `);
-      const deviceInput = dialog.querySelector("#dlg-device");
-      const commandInput = dialog.querySelector("#dlg-command");
+      `;
+      const input = dialog.querySelector("#lc-command");
       const submit = () => {
-        const device = prefillDevice || deviceInput.value.trim();
-        const command = commandInput.value.trim();
-        if (!device || !command) {
+        const command = input.value.trim();
+        if (!command) {
           dialog.querySelector("#dlg-error").textContent = t.required;
           return;
         }
-        this._closeDialog();
-        resolve({ device, command });
+        renderWaiting(dialog, command);
       };
-      commandInput.addEventListener("keydown", (e) => {
+      input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") submit();
       });
-      setTimeout(() => (prefillDevice ? commandInput : deviceInput).focus(), 0);
-      dialog.querySelector("#dlg-cancel").onclick = () => {
-        this._closeDialog();
-        resolve(null);
-      };
+      setTimeout(() => input.focus(), 0);
+      dialog.querySelector("#dlg-cancel").onclick = () => this._closeDialog();
       dialog.querySelector("#dlg-confirm").onclick = submit;
-    });
+    };
+
+    const renderWaiting = (dialog, command) => {
+      dialog.innerHTML = `
+        <h2>${this._escapeHtml(command)}</h2>
+        <p>${t.waitingForSignal}</p>
+        <div class="dialog-actions">
+          <button class="ghost" id="dlg-cancel">${t.cancelBtn}</button>
+        </div>
+      `;
+      dialog.querySelector("#dlg-cancel").onclick = () => this._closeDialog();
+
+      this._callService("learn_command", { entity_id: entityId, device, command, timeout: 20 }, true)
+        .then((res) => {
+          // The dialog may have been closed (or moved on to a different
+          // state) while this was in flight - nothing to update then.
+          if (!dialog.isConnected) return;
+          const resp = res && res.response;
+          if (resp && resp.status === "ok") {
+            renderResult(dialog, command, resp.code, resp.toggle);
+          } else {
+            renderForm(dialog, t.learnFailed((resp && resp.error) || "unknown error"));
+          }
+        })
+        .catch((err) => {
+          if (!dialog.isConnected) return;
+          renderForm(dialog, t.learnFailed(err.message || err));
+        });
+    };
+
+    const renderResult = (dialog, command, code, toggle) => {
+      const toggleNote = toggle ? ` <span class="toggle-badge">${this._escapeHtml(t.toggle)}</span>` : "";
+      dialog.innerHTML = `
+        <h2>${this._escapeHtml(command)}${toggleNote}</h2>
+        <div class="field-label">${t.codeLabel}</div>
+        <code class="full-code">${this._escapeHtml(code || "")}</code>
+        <div class="dialog-actions wrap">
+          <button id="lr-test">${t.test}</button>
+          <button class="danger" id="lr-cancel">${t.cancelBtn}</button>
+          <button id="lr-save">${t.saveBtn}</button>
+        </div>
+      `;
+      dialog.querySelector("#lr-test").onclick = () => this._testCommand(entityId, device, command);
+      dialog.querySelector("#lr-save").onclick = async () => {
+        this._closeDialog();
+        this._toast(t.learnedToast(command, device));
+        await this._refresh();
+      };
+      dialog.querySelector("#lr-cancel").onclick = async () => {
+        // remote.learn_command already saved this the moment the signal
+        // was received - "Cancel" here means "discard what was just
+        // learned", so it deletes the command it just created rather
+        // than just closing (which would silently leave it behind).
+        try {
+          await this._hass.callService("remote", "delete_command", { entity_id: entityId, device, command });
+        } catch (err) {
+          // Best-effort: even if the delete fails, closing is still the
+          // right move here - the command just lingers and can be
+          // removed normally from its detail dialog afterwards.
+        }
+        this._closeDialog();
+        await this._refresh();
+      };
+    };
+
+    const dialog = this._openDialog("");
+    renderForm(dialog);
   }
 
   _infoDialog(title, bodyHtml) {
@@ -441,6 +569,129 @@ class BroadlinkCodesPanel extends HTMLElement {
     }
   }
 
+  // Creating a device is deliberately separate from learning a command
+  // (see _learnCommand above) - this only ever produces an empty device
+  // container (name + optional type/icon); commands are learned into it
+  // afterwards from its own page. If the name is already taken, this
+  // stays open and offers a shortcut into the existing device's
+  // learn-command flow instead of silently doing something surprising.
+  _createDeviceDialog(entityId) {
+    const t = this.t;
+    const dialog = this._openDialog(`
+      <h2>${t.createDeviceTitle}</h2>
+      <label class="field-label">${t.createDeviceNameLabel}
+        <input type="text" id="cd-name" />
+      </label>
+      <label class="field-label">${t.createDeviceTypeLabel}
+        <select id="cd-type">${this._deviceTypeOptions("")}</select>
+      </label>
+      <div class="dialog-error" id="dlg-error"></div>
+      <div class="dialog-actions" id="cd-actions">
+        <button class="ghost" id="dlg-cancel">${t.cancelBtn}</button>
+        <button id="dlg-confirm">${t.createDeviceBtn}</button>
+      </div>
+    `);
+    const nameInput = dialog.querySelector("#cd-name");
+    const typeSelect = dialog.querySelector("#cd-type");
+    setTimeout(() => nameInput.focus(), 0);
+    dialog.querySelector("#dlg-cancel").onclick = () => this._closeDialog();
+
+    const submit = async () => {
+      const device = nameInput.value.trim();
+      if (!device) {
+        dialog.querySelector("#dlg-error").textContent = t.required;
+        return;
+      }
+      try {
+        await this._callService("create_device", {
+          entity_id: entityId,
+          device,
+          device_type: typeSelect.value,
+        });
+        this._closeDialog();
+        this._toast(t.createdDeviceToast(device));
+        await this._refresh();
+        this._openDevice = { entityId, device };
+        this._renderContent();
+      } catch (err) {
+        const msg = err.message || String(err);
+        const errBox = dialog.querySelector("#dlg-error");
+        if (/already exists/i.test(msg)) {
+          errBox.textContent = t.deviceAlreadyExists(device);
+          let hintBtn = dialog.querySelector("#cd-learn-existing");
+          if (!hintBtn) {
+            hintBtn = document.createElement("button");
+            hintBtn.className = "ghost";
+            hintBtn.id = "cd-learn-existing";
+            dialog.querySelector("#cd-actions").prepend(hintBtn);
+          }
+          hintBtn.textContent = t.learnForExistingBtn;
+          hintBtn.onclick = () => {
+            this._closeDialog();
+            this._learnCommand(entityId, device);
+          };
+        } else {
+          errBox.textContent = t.createDeviceFailed(msg);
+        }
+      }
+    };
+    dialog.querySelector("#dlg-confirm").onclick = submit;
+  }
+
+  // Rename and/or re-type an existing device in one dialog.
+  async _editDeviceDialog(entityId, device) {
+    const t = this.t;
+    const remote = this._data.find((r) => r.entity_id === entityId);
+    const currentType = (remote && remote.device_types && remote.device_types[device]) || "";
+
+    const dialog = this._openDialog(`
+      <h2>${t.editDeviceTitle}</h2>
+      <label class="field-label">${t.editDeviceNameLabel}
+        <input type="text" id="ed-name" value="${this._escapeHtml(device)}" />
+      </label>
+      <label class="field-label">${t.editDeviceTypeLabel}
+        <select id="ed-type">${this._deviceTypeOptions(currentType)}</select>
+      </label>
+      <div class="dialog-error" id="dlg-error"></div>
+      <div class="dialog-actions">
+        <button class="ghost" id="dlg-cancel">${t.cancelBtn}</button>
+        <button id="dlg-confirm">${t.saveBtn}</button>
+      </div>
+    `);
+    dialog.querySelector("#dlg-cancel").onclick = () => this._closeDialog();
+    dialog.querySelector("#dlg-confirm").onclick = async () => {
+      const newName = dialog.querySelector("#ed-name").value.trim();
+      const newType = dialog.querySelector("#ed-type").value;
+      if (!newName) {
+        dialog.querySelector("#dlg-error").textContent = t.required;
+        return;
+      }
+      this._closeDialog();
+      try {
+        if (newName !== device) {
+          await this._callService("rename_device", {
+            entity_id: entityId,
+            old_device: device,
+            new_device: newName,
+          });
+        }
+        if (newType !== currentType) {
+          await this._callService("set_device_type", {
+            entity_id: entityId,
+            device: newName,
+            device_type: newType,
+          });
+        }
+        this._toast(t.deviceUpdatedToast(newName));
+        this._openDevice = { entityId, device: newName };
+        await this._refresh();
+      } catch (err) {
+        this._toast(t.editDeviceFailed(err.message || err), true);
+        await this._refresh();
+      }
+    };
+  }
+
   async _copyCode(code) {
     // navigator.clipboard requires a secure context (HTTPS) and can be
     // unavailable entirely - e.g. plain-HTTP local network access, which
@@ -472,29 +723,6 @@ class BroadlinkCodesPanel extends HTMLElement {
       } catch (fallbackErr) {
         this._toast(this.t.copyFailed, true);
       }
-    }
-  }
-
-  async _learnCommand(entityId, prefillDevice) {
-    const result = await this._learnDialog(prefillDevice);
-    if (!result) return;
-    const { device, command } = result;
-    this._toast(this.t.learning(command));
-    try {
-      const result2 = await this._callService(
-        "learn_command",
-        { entity_id: entityId, device, command, timeout: 20 },
-        true
-      );
-      const resp = result2 && result2.response;
-      if (resp && resp.status === "ok") {
-        this._toast(this.t.learnedToast(command, device));
-        await this._refresh();
-      } else {
-        this._toast(this.t.learnFailed((resp && resp.error) || "unknown error"), true);
-      }
-    } catch (err) {
-      this._toast(this.t.learnFailed(err.message || err), true);
     }
   }
 
@@ -642,24 +870,40 @@ class BroadlinkCodesPanel extends HTMLElement {
     return div.innerHTML;
   }
 
-  _deviceIcon(name) {
+  // Guesses a device-type key from its name (used when no explicit type
+  // was chosen for it) - "" (auto) and "generic" (the catch-all, empty
+  // keyword list) are never matched here, only real, keyword-bearing types.
+  _guessDeviceType(name) {
     const n = name.toLowerCase();
-    const table = [
-      [["tv", "телев", "телек"], "📺"],
-      [["air", "condition", "клімат", "кондиц", "ac"], "❄️"],
-      [["light", "lamp", "світло", "лампа", "люстра"], "💡"],
-      [["fan", "вентил"], "🌀"],
-      [["speaker", "audio", "sound", "колон", "звук", "музик"], "🔊"],
-      [["heat", "обігрів", "тепл"], "🔥"],
-      [["projector", "проектор"], "📽️"],
-      [["box", "приставк", "тюнер", "receiver", "ресивер"], "📡"],
-      [["fireplace", "камін"], "🔥"],
-      [["curtain", "blind", "штор", "жалюз"], "🪟"],
-    ];
-    for (const [keywords, icon] of table) {
-      if (keywords.some((k) => n.includes(k))) return icon;
+    for (const dt of DEVICE_TYPES) {
+      if (dt.keywords.length && dt.keywords.some((k) => n.includes(k))) return dt.key;
     }
-    return "🎛️";
+    return "generic";
+  }
+
+  // The type actually shown for a device: an explicit choice (stored
+  // server-side, set at creation or via Edit device) takes priority,
+  // falling back to a guess from the name.
+  _effectiveDeviceType(remote, device) {
+    const explicit = remote && remote.device_types && remote.device_types[device];
+    return explicit || this._guessDeviceType(device);
+  }
+
+  _deviceTypeIcon(key) {
+    const dt = DEVICE_TYPES.find((d) => d.key === key);
+    return dt ? dt.icon : "🎛️";
+  }
+
+  _deviceTypeLabel(key) {
+    const dt = DEVICE_TYPES.find((d) => d.key === key) || DEVICE_TYPES[DEVICE_TYPES.length - 1];
+    return this._lang === "uk" ? dt.uk : dt.en;
+  }
+
+  _deviceTypeOptions(selectedKey) {
+    return DEVICE_TYPES.map(
+      (dt) =>
+        `<option value="${dt.key}" ${dt.key === selectedKey ? "selected" : ""}>${dt.icon} ${this._lang === "uk" ? dt.uk : dt.en}</option>`
+    ).join("");
   }
 
   _setLang(lang) {
@@ -714,25 +958,18 @@ class BroadlinkCodesPanel extends HTMLElement {
         .device-tile .tile-name { display: block; width: 100%; font-size: 13px; font-weight: 600;
           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .device-tile .tile-count { display: block; font-size: 11px; color: var(--secondary-text-color); margin-top: 3px; }
-        .device-tile .tile-del { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px;
-          border-radius: 50%; padding: 0; font-size: 13px; line-height: 22px; background: transparent;
-          color: var(--secondary-text-color); opacity: 0; transition: opacity .12s; margin: 0; }
-        .device-tile:hover .tile-del { opacity: 1; }
-        .device-tile .tile-del:hover { background: var(--error-color, #db4437); color: #fff; }
-        .add-device-tile { display: flex; flex-direction: column; align-items: center; justify-content: center;
-          border-style: dashed; color: var(--primary-color); }
-        .add-device-tile .tile-icon { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
 
         /* ---- plain command list (inside a device) ---- */
-        .device-view-header { display: flex; align-items: center; gap: 8px; padding: 14px 16px;
+        .device-view-header { display: flex; align-items: center; gap: 4px; padding: 14px 16px;
           border-bottom: 1px solid var(--divider-color); background: var(--card-background-color); }
-        .device-view-header .back-btn { background: transparent; color: var(--primary-text-color);
+        .device-view-header .back-btn, .device-view-header .icon-btn { background: transparent; color: var(--primary-text-color);
           padding: 6px; margin: 0; border-radius: 50%; width: 32px; height: 32px; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center; }
-        .device-view-header .back-btn:hover { background: var(--secondary-background-color); }
-        .device-view-header .back-btn svg { width: 22px; height: 22px; fill: currentColor; }
+        .device-view-header .back-btn:hover, .device-view-header .icon-btn:hover { background: var(--secondary-background-color); }
+        .device-view-header .back-btn svg, .device-view-header .icon-btn svg { width: 20px; height: 20px; fill: currentColor; }
         .device-view-header .title { flex: 1; min-width: 0; font-size: 16px; font-weight: 600;
           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .device-view-header .danger { flex-shrink: 0; white-space: nowrap; margin-left: 4px; }
         .command-list { background: var(--card-background-color); border-radius: 0 0 14px 14px; overflow: hidden; }
         .command-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
           padding: 13px 16px; cursor: pointer; border-bottom: 1px solid var(--divider-color); }
@@ -740,7 +977,8 @@ class BroadlinkCodesPanel extends HTMLElement {
         .command-row:hover { background: var(--secondary-background-color); }
         .command-row .cmd-name { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .command-row .cmd-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; color: var(--secondary-text-color); }
-        .command-row .row-chevron { opacity: .5; }
+        .command-row .row-chevron { opacity: 1; font-size: 22px; line-height: 1; font-weight: 700;
+          color: var(--primary-color); }
         .add-command-row { color: var(--primary-color); font-weight: 500; }
         button { cursor: pointer; border: none; background: var(--primary-color); color: var(--text-primary-color, #fff);
           padding: 5px 10px; border-radius: 6px; font-size: 12px; margin-left: 6px; font-weight: 500; }
@@ -857,8 +1095,8 @@ class BroadlinkCodesPanel extends HTMLElement {
       header.className = "remote-header";
       header.innerHTML = `<span class="header-title">${this._escapeHtml(remote.friendly_name || remote.entity_id)}<span class="entity-id">${this._escapeHtml(remote.entity_id)}</span></span>`;
       const learnBtn = document.createElement("button");
-      learnBtn.textContent = t.learn;
-      learnBtn.onclick = () => this._learnCommand(remote.entity_id);
+      learnBtn.textContent = t.createDevice;
+      learnBtn.onclick = () => this._createDeviceDialog(remote.entity_id);
       header.appendChild(learnBtn);
       remoteEl.appendChild(header);
 
@@ -884,22 +1122,18 @@ class BroadlinkCodesPanel extends HTMLElement {
       for (const device of deviceNames) {
         const commands = remote.devices[device];
         const commandCount = Object.keys(commands).length;
+        const icon = this._deviceTypeIcon(this._effectiveDeviceType(remote, device));
 
         const tile = document.createElement("div");
         tile.className = "device-tile";
         tile.innerHTML = `
-          <button class="tile-del" title="${t.deleteDevice}">&times;</button>
-          <span class="tile-icon">${this._deviceIcon(device)}</span>
+          <span class="tile-icon">${icon}</span>
           <span class="tile-name">${this._escapeHtml(device)}</span>
           <span class="tile-count">${commandCount}</span>
         `;
         tile.onclick = () => {
           this._openDevice = { entityId: remote.entity_id, device };
           this._renderContent();
-        };
-        tile.querySelector(".tile-del").onclick = (e) => {
-          e.stopPropagation();
-          this._deleteDevice(remote.entity_id, device, commands);
         };
         grid.appendChild(tile);
       }
@@ -929,16 +1163,21 @@ class BroadlinkCodesPanel extends HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "remote";
 
+    const icon = this._deviceTypeIcon(this._effectiveDeviceType(remote, device));
     const viewHeader = document.createElement("div");
     viewHeader.className = "device-view-header";
     viewHeader.innerHTML = `
       <button class="back-btn" title="${t.back}"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></button>
-      <span class="title">${this._deviceIcon(device)} ${this._escapeHtml(device)}</span>
+      <span class="title">${icon} ${this._escapeHtml(device)}</span>
+      <button class="icon-btn" id="dv-edit" title="${t.editDeviceTitle}"><svg viewBox="0 0 24 24"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z" /></svg></button>
+      <button class="danger" id="dv-delete">${t.deleteDevice}</button>
     `;
     viewHeader.querySelector(".back-btn").onclick = () => {
       this._openDevice = null;
       this._renderContent();
     };
+    viewHeader.querySelector("#dv-edit").onclick = () => this._editDeviceDialog(entityId, device);
+    viewHeader.querySelector("#dv-delete").onclick = () => this._deleteDevice(entityId, device, commands);
     wrap.appendChild(viewHeader);
 
     const list = document.createElement("div");
