@@ -909,10 +909,21 @@ class BroadlinkCodesPanel extends HTMLElement {
   }
 
   _deviceTypeOptions(selectedKey) {
-    return DEVICE_TYPES.map(
-      (dt) =>
-        `<option value="${dt.key}" ${dt.key === selectedKey ? "selected" : ""}>${dt.icon} ${this._lang === "uk" ? dt.uk : dt.en}</option>`
-    ).join("");
+    const lang = this._lang;
+    const label = (dt) => (lang === "uk" ? dt.uk : dt.en);
+    // "Auto-detect from name" (key "") stays first - it's not a real
+    // device type, it's the "let the panel guess" option. Every actual
+    // type (TV, oven, air conditioner, ...) is sorted alphabetically by
+    // its localized label, always, regardless of DEVICE_TYPES' own
+    // declaration order, so the ~30-item list stays easy to scan.
+    const [auto, ...types] = DEVICE_TYPES;
+    const sorted = [...types].sort((a, b) => label(a).localeCompare(label(b), lang));
+    return [auto, ...sorted]
+      .map(
+        (dt) =>
+          `<option value="${dt.key}" ${dt.key === selectedKey ? "selected" : ""}>${dt.icon} ${label(dt)}</option>`
+      )
+      .join("");
   }
 
   _setLang(lang) {

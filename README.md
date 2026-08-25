@@ -8,7 +8,7 @@ A sidebar panel for Home Assistant to browse, test, copy, rename, delete
 and learn Broadlink IR/RF codes — without editing
 `.storage/broadlink_remote_<mac>_codes` by hand.
 
-> **Status: v1.4.1.** Built from a design spec and a review of the
+> **Status: v1.4.2.** Built from a design spec and a review of the
 > Broadlink integration's source in `home-assistant/core`. The
 > integration's service logic has an automated test suite (see
 > [Tests](#tests) below), but the integration itself is still **not yet
@@ -166,6 +166,14 @@ tests/
   correctly everywhere else in HA once installed.
 
 ## Changelog
+
+### v1.4.2
+
+- **Fixed: the device-type dropdown (Create device / Edit device) was
+  sorted by its arbitrary internal declaration order**, not
+  alphabetically. It's now always sorted by the current language's
+  label (TV, oven, air conditioner, ...), with "Auto-detect from name"
+  pinned first since it isn't a real type.
 
 ### v1.4.1
 
