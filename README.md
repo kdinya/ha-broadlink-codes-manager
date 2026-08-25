@@ -8,7 +8,7 @@ A sidebar panel for Home Assistant to browse, test, copy, rename, delete
 and learn Broadlink IR/RF codes — without editing
 `.storage/broadlink_remote_<mac>_codes` by hand.
 
-> **Status: v1.4.0.** Built from a design spec and a review of the
+> **Status: v1.4.1.** Built from a design spec and a review of the
 > Broadlink integration's source in `home-assistant/core`. The
 > integration's service logic has an automated test suite (see
 > [Tests](#tests) below), but the integration itself is still **not yet
@@ -90,6 +90,7 @@ Copy `custom_components/broadlink_codes_manager/` into your HA
 | `broadlink_codes_manager.learn_command` | Wraps `remote.learn_command`, returning the learned code itself along with success/failure. |
 | `broadlink_codes_manager.create_device` | Creates an empty device, optionally with a type/icon. Fails if the name is already taken. |
 | `broadlink_codes_manager.rename_device` | Renames a device, moving every command under it. Carries over its device-type choice. |
+| `broadlink_codes_manager.delete_device` | Deletes a device outright, including ones with zero learned commands. |
 | `broadlink_codes_manager.set_device_type` | Sets (or clears, restoring auto-detect) which icon a device shows. Purely cosmetic. |
 
 Deleting and sending codes reuse Home Assistant's own
@@ -165,6 +166,22 @@ tests/
   correctly everywhere else in HA once installed.
 
 ## Changelog
+
+### v1.4.1
+
+- **Fixed: a device created via "Create device" but never given a
+  command could never be deleted.** Deleting a device used to go
+  through `remote.delete_command`, which only removes named commands
+  one at a time - Broadlink's own entity has nothing to iterate for an
+  empty device, so it silently left the device behind forever. Delete
+  device now uses a new `delete_device` service that removes the
+  device entry directly (and cleans up its device-type entry), which
+  works the same whether the device has commands or not.
+- **Changed:** the device grid is now sorted alphabetically by device
+  name instead of insertion order.
+- **Added:** a small "View on GitHub" link at the bottom of the main
+  device-list page, pointing back to this repository - the panel had
+  no way back to the project page from inside Home Assistant before.
 
 ### v1.4.0
 

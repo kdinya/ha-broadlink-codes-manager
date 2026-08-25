@@ -389,6 +389,61 @@ async def test_rename_device_carries_over_device_type(hass_with_remotes, make_re
     assert result["remotes"][0]["device_types"] == {"Living Room TV": "tv"}
 
 
+# ---- delete_device ----
+
+
+async def test_delete_device_removes_empty_device(hass_with_remotes, make_remote):
+    """The bug this exists to fix: a device created via create_device but
+    never given a command has nothing for remote.delete_command to
+    iterate, so it could never be removed that way."""
+    remote = make_remote("remote.a", "A", {})
+    hass = hass_with_remotes(remote)
+    await _setup(hass)
+
+    await hass.services.async_call(DOMAIN, "create_device", {"entity_id": "remote.a", "device": "TV"})
+    assert remote._codes == {"TV": {}}
+
+    await hass.services.async_call(DOMAIN, "delete_device", {"entity_id": "remote.a", "device": "TV"})
+
+    assert remote._codes == {}
+
+
+async def test_delete_device_removes_device_with_commands(hass_with_remotes, make_remote):
+    remote = make_remote("remote.a", "A", {"TV": {"power": "AABB"}, "AC": {"power": "CCDD"}})
+    hass = hass_with_remotes(remote)
+    await _setup(hass)
+
+    await hass.services.async_call(DOMAIN, "delete_device", {"entity_id": "remote.a", "device": "TV"})
+
+    assert remote._codes == {"AC": {"power": "CCDD"}}
+
+
+async def test_delete_device_rejects_unknown_device(hass_with_remotes, make_remote):
+    remote = make_remote("remote.a", "A", {"TV": {"power": "AABB"}})
+    hass = hass_with_remotes(remote)
+    await _setup(hass)
+
+    with pytest.raises(ValueError, match="not found"):
+        await hass.services.async_call(
+            DOMAIN, "delete_device", {"entity_id": "remote.a", "device": "AC"}
+        )
+    assert remote._codes == {"TV": {"power": "AABB"}}
+
+
+async def test_delete_device_cleans_up_device_type(hass_with_remotes, make_remote):
+    remote = make_remote("remote.a", "A", {"TV": {"power": "AABB"}})
+    hass = hass_with_remotes(remote)
+    await _setup(hass)
+
+    await hass.services.async_call(
+        DOMAIN, "set_device_type", {"entity_id": "remote.a", "device": "TV", "device_type": "tv"}
+    )
+    await hass.services.async_call(DOMAIN, "delete_device", {"entity_id": "remote.a", "device": "TV"})
+
+    result = await hass.services.async_call(DOMAIN, "list_codes", {})
+    assert result["remotes"][0]["device_types"] == {}
+
+
 # ---- set_device_type ----
 
 

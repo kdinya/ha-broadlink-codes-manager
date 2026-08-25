@@ -33,6 +33,7 @@ from .const import (
     SERVICE_LIST_CODES,
     SERVICE_RENAME_COMMAND,
     SERVICE_CREATE_DEVICE,
+    SERVICE_DELETE_DEVICE,
     SERVICE_RENAME_DEVICE,
     SERVICE_SET_DEVICE_TYPE,
 )
@@ -92,6 +93,13 @@ RENAME_DEVICE_SCHEMA = vol.Schema(
     }
 )
 
+DELETE_DEVICE_SCHEMA = vol.Schema(
+    {
+        vol.Required("entity_id"): str,
+        vol.Required("device"): str,
+    }
+)
+
 SET_DEVICE_TYPE_SCHEMA = vol.Schema(
     {
         vol.Required("entity_id"): str,
@@ -107,9 +115,9 @@ ALL_SERVICES = (
     SERVICE_LEARN_COMMAND,
     SERVICE_COPY_COMMAND,
     SERVICE_CREATE_DEVICE,
+    SERVICE_DELETE_DEVICE,
     SERVICE_RENAME_DEVICE,
     SERVICE_SET_DEVICE_TYPE,
-    SERVICE_CREATE_DEVICE,
 )
 
 
@@ -262,6 +270,48 @@ def _register_services(hass: HomeAssistant) -> None:
             store = _device_types_store(hass)
             data = await store.async_load() or {}
             data.setdefault(entity_id, {})[device] = device_type
+            await store.async_save(data)
+
+    async def handle_delete_device(call: ServiceCall) -> None:
+        """Delete a device entry outright, including ones with zero
+        learned commands.
+
+        This does NOT go through remote.delete_command: that service
+        only deletes named commands, and Broadlink's own entity code
+        never removes a device that has no commands left in it (there's
+        nothing to iterate) - so a device created via create_device but
+        never given a command could never be removed that way. This
+        writes directly to entity._codes instead, same pattern as every
+        other mutation in this file, which handles the empty-device case
+        for free.
+        """
+        entity_id = call.data["entity_id"]
+        entity = get_remote_by_entity_id(hass, entity_id)
+        if entity is None:
+            raise ValueError(f"Broadlink remote {entity_id} not found")
+        await async_ensure_storage_loaded(entity)
+
+        device = call.data["device"]
+
+        async def _do_delete() -> None:
+            codes = entity._codes  # noqa: SLF001 - see entity_access.py
+            if device not in codes:
+                raise ValueError(f"Device '{device}' not found")
+            del codes[device]
+            await entity._code_storage.async_save(codes)  # noqa: SLF001
+
+        lock = getattr(entity, "_lock", None)
+        if lock is not None:
+            async with lock:
+                await _do_delete()
+        else:
+            await _do_delete()
+
+        store = _device_types_store(hass)
+        data = await store.async_load() or {}
+        remote_types = data.get(entity_id, {})
+        if device in remote_types:
+            remote_types.pop(device, None)
             await store.async_save(data)
 
     async def handle_rename_device(call: ServiceCall) -> None:
@@ -457,6 +507,9 @@ def _register_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(
         DOMAIN, SERVICE_CREATE_DEVICE, handle_create_device, schema=CREATE_DEVICE_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_DELETE_DEVICE, handle_delete_device, schema=DELETE_DEVICE_SCHEMA
     )
 
 

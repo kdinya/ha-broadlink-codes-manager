@@ -12,6 +12,7 @@ SERVICE_COPY_COMMAND = "copy_command"
 SERVICE_RENAME_DEVICE = "rename_device"
 SERVICE_SET_DEVICE_TYPE = "set_device_type"
 SERVICE_CREATE_DEVICE = "create_device"
+SERVICE_DELETE_DEVICE = "delete_device"
 
 # hass.data[DOMAIN] key holding the set of active config entry IDs, used to
 # register services/panel once on the first entry and clean up on the last.

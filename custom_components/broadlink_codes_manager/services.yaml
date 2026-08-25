@@ -230,6 +230,24 @@ rename_device:
       selector:
         text:
 
+delete_device:
+  name: Delete device
+  description: >-
+    Deletes a device entry outright, including devices with zero learned
+    commands (which remote.delete_command cannot remove, since it only
+    deletes named commands one at a time).
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: remote
+    device:
+      required: true
+      example: "Living Room TV"
+      selector:
+        text:
+
 set_device_type:
   name: Set device type
   description: >-

@@ -4,6 +4,7 @@
 
 const DOMAIN = "broadlink_codes_manager";
 const LANG_KEY = "broadlink_codes_manager_lang";
+const REPO_URL = "https://github.com/kdinya/ha-broadlink-codes-manager";
 
 const STRINGS = {
   en: {
@@ -82,6 +83,7 @@ const STRINGS = {
     copyBtn: "Copy",
     copiedDeviceToast: (cmd, dev) => `Copied "${cmd}" to "${dev}"`,
     copyToDeviceFailed: (msg) => `Copy failed: ${msg}`,
+    repoLink: "View on GitHub",
   },
   uk: {
     title: "Менеджер кодів Broadlink",
@@ -159,6 +161,7 @@ const STRINGS = {
     copyBtn: "Копіювати",
     copiedDeviceToast: (cmd, dev) => `Команду "${cmd}" скопійовано на "${dev}"`,
     copyToDeviceFailed: (msg) => `Помилка копіювання: ${msg}`,
+    repoLink: "Переглянути на GitHub",
   },
 };
 
@@ -540,10 +543,16 @@ class BroadlinkCodesPanel extends HTMLElement {
     );
     if (!ok) return;
     try {
-      await this._hass.callService("remote", "delete_command", {
+      // Goes through our own delete_device service rather than
+      // remote.delete_command: that service only removes named
+      // commands one at a time and Broadlink's own entity never drops
+      // a device that has none left to iterate, so a device created
+      // via "Create device" but never given a command could never be
+      // removed. delete_device drops the device entry directly, which
+      // also covers that empty-device case.
+      await this._callService("delete_device", {
         entity_id: entityId,
         device,
-        command: names,
       });
       this._toast(this.t.deletedDeviceToast(device));
       await this._refresh();
@@ -1016,6 +1025,11 @@ class BroadlinkCodesPanel extends HTMLElement {
           margin: 8px 0 14px; max-height: 140px; overflow-y: auto; }
         .dialog-actions.wrap { flex-wrap: wrap; }
         .dialog-error { color: var(--error-color, #db4437); font-size: 12px; min-height: 16px; margin-top: 6px; }
+        .repo-footer { display: flex; justify-content: center; padding: 12px 0 4px; }
+        .repo-footer a { display: inline-flex; align-items: center; gap: 6px; color: var(--secondary-text-color);
+          font-size: 12px; text-decoration: none; }
+        .repo-footer a:hover { color: var(--primary-color); text-decoration: underline; }
+        .repo-footer svg { width: 14px; height: 14px; fill: currentColor; flex-shrink: 0; }
       </style>
       <div class="app-toolbar">
         <button class="menu-btn" id="menu-btn" title="${t.menuToggle}" aria-label="${t.menuToggle}">
@@ -1100,11 +1114,13 @@ class BroadlinkCodesPanel extends HTMLElement {
       header.appendChild(learnBtn);
       remoteEl.appendChild(header);
 
-      const deviceNames = Object.keys(remote.devices).filter((d) => {
-        if (!filter) return true;
-        if (d.toLowerCase().includes(filter)) return true;
-        return Object.keys(remote.devices[d]).some((c) => c.toLowerCase().includes(filter));
-      });
+      const deviceNames = Object.keys(remote.devices)
+        .filter((d) => {
+          if (!filter) return true;
+          if (d.toLowerCase().includes(filter)) return true;
+          return Object.keys(remote.devices[d]).some((c) => c.toLowerCase().includes(filter));
+        })
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 
       if (!deviceNames.length) {
         const empty = document.createElement("div");
@@ -1141,6 +1157,25 @@ class BroadlinkCodesPanel extends HTMLElement {
       remoteEl.appendChild(grid);
       content.appendChild(remoteEl);
     }
+
+    // Repo link, main device-list page only (not shown once drilled into
+    // a device) - the same convention other HACS custom integrations use
+    // to point users back to the project's own GitHub page from inside
+    // the running panel.
+    const footer = document.createElement("div");
+    footer.className = "repo-footer";
+    footer.innerHTML = `
+      <a href="${REPO_URL}" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+          0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01
+          1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+          -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82
+          2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48
+          0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span>${t.repoLink}</span>
+      </a>
+    `;
+    content.appendChild(footer);
   }
 
   _renderDeviceView(content) {
