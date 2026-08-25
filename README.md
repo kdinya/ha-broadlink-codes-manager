@@ -123,6 +123,15 @@ tests/
   `StaticPathConfig` API introduced in HA 2024.7) — this code path is
   the least tested part of the integration; please report if the panel
   doesn't appear.
+- **HACS validation / brand icon:** the official HACS validation action
+  checks that a custom integration's domain is registered in
+  [home-assistant/brands](https://github.com/home-assistant/brands),
+  which is a separate, maintainer-reviewed repository this project
+  doesn't control. A PR adding `broadlink_codes_manager`'s icon there
+  is open; until it's merged, the `HACS` CI job may show red and the
+  integration will use a generic icon in HA's UI - neither affects the
+  integration's actual functionality, and installing via HACS's
+  "Add custom repository" flow works regardless.
 
 ## Changelog
 
