@@ -8,7 +8,7 @@ A sidebar panel for Home Assistant to browse, test, copy, rename, delete
 and learn Broadlink IR/RF codes — without editing
 `.storage/broadlink_remote_<mac>_codes` by hand.
 
-> **Status: v1.3.3.** Built from a design spec and a review of the
+> **Status: v1.3.4.** Built from a design spec and a review of the
 > Broadlink integration's source in `home-assistant/core`. The
 > integration's service logic has an automated test suite (see
 > [Tests](#tests) below), but the integration itself is still **not yet
@@ -123,17 +123,30 @@ tests/
   `StaticPathConfig` API introduced in HA 2024.7) — this code path is
   the least tested part of the integration; please report if the panel
   doesn't appear.
-- **HACS validation / brand icon:** the official HACS validation action
-  checks that a custom integration's domain is registered in
-  [home-assistant/brands](https://github.com/home-assistant/brands),
-  which is a separate, maintainer-reviewed repository this project
-  doesn't control. A PR adding `broadlink_codes_manager`'s icon there
-  is open; until it's merged, the `HACS` CI job may show red and the
-  integration will use a generic icon in HA's UI - neither affects the
-  integration's actual functionality, and installing via HACS's
-  "Add custom repository" flow works regardless.
+- **Brand icon.** As of Home Assistant 2026.3, custom integrations ship
+  their own brand icon directly instead of submitting to the separate
+  `home-assistant/brands` repository (which stopped accepting new
+  custom-integration icons for exactly this reason). This repo includes
+  one at `custom_components/broadlink_codes_manager/brand/icon.png`.
+  Note: at the time of writing, HACS's own download-list UI has a
+  [known bug](https://github.com/hacs/integration/issues/5223) where it
+  still looks for icons at the old CDN location and shows a placeholder
+  for integrations using the new inline mechanism - that's a HACS-side
+  issue, not something fixable from this repo; the icon still displays
+  correctly everywhere else in HA once installed.
 
 ## Changelog
+
+### v1.3.4
+
+- **Fixed:** switched to the correct, current way of shipping a brand
+  icon. The `home-assistant/brands` repository stopped accepting new
+  custom-integration icons as of HA 2026.3 - it now expects them
+  bundled with the integration itself
+  (`custom_components/broadlink_codes_manager/brand/icon.png`), which
+  this release adds. The PR opened against `home-assistant/brands` in
+  v1.3.3 was auto-closed by their bot for this reason and is no longer
+  needed.
 
 ### v1.3.3
 
