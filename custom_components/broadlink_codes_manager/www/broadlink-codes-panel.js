@@ -711,9 +711,9 @@ class BroadlinkCodesPanel extends HTMLElement {
           text-align: center; cursor: pointer; transition: background .12s, border-color .12s, transform .12s; }
         .device-tile:hover { border-color: var(--primary-color); transform: translateY(-2px); }
         .device-tile .tile-icon { font-size: 28px; line-height: 1; display: block; margin-bottom: 10px; }
-        .device-tile .tile-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis;
-          white-space: nowrap; }
-        .device-tile .tile-count { font-size: 11px; color: var(--secondary-text-color); margin-top: 3px; }
+        .device-tile .tile-name { display: block; width: 100%; font-size: 13px; font-weight: 600;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .device-tile .tile-count { display: block; font-size: 11px; color: var(--secondary-text-color); margin-top: 3px; }
         .device-tile .tile-del { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px;
           border-radius: 50%; padding: 0; font-size: 13px; line-height: 22px; background: transparent;
           color: var(--secondary-text-color); opacity: 0; transition: opacity .12s; margin: 0; }

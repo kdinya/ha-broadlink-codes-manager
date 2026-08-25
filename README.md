@@ -8,13 +8,19 @@ A sidebar panel for Home Assistant to browse, test, copy, rename, delete
 and learn Broadlink IR/RF codes — without editing
 `.storage/broadlink_remote_<mac>_codes` by hand.
 
-> **Status: v1.3.4.** Built from a design spec and a review of the
+> **Status: v1.3.5.** Built from a design spec and a review of the
 > Broadlink integration's source in `home-assistant/core`. The
 > integration's service logic has an automated test suite (see
 > [Tests](#tests) below), but the integration itself is still **not yet
 > verified against a live Home Assistant instance.** Please open an
 > issue with your HA version if something doesn't load — see
 > [Known limitations](#known-limitations--how-it-works) below for why.
+
+## Screenshots
+
+| Devices | Commands | Command detail |
+|---|---|---|
+| ![Device grid](images/devices.png) | ![Command list](images/commands.png) | ![Command detail dialog](images/command-detail.png) |
 
 ## Features
 
@@ -136,6 +142,19 @@ tests/
   correctly everywhere else in HA once installed.
 
 ## Changelog
+
+### v1.3.5
+
+- **Fixed:** long device names could overflow past the edge of their
+  tile in the device grid instead of truncating - the truncation CSS
+  was on an inline `<span>` with no defined width, so it never
+  actually applied. Now correctly ellipsizes (`Home Theater Sound...`)
+  and the command count stays reliably underneath the name (previously
+  it could end up on the same line as a short name instead of always
+  stacking below it, since neither element was block-level).
+- **Added:** real screenshots to the README (device grid, command
+  list, command detail dialog) - also brings the README in line with
+  HACS's own recommendation to include images.
 
 ### v1.3.4
 
